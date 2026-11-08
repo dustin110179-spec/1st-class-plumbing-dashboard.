@@ -1,0 +1,15 @@
+Assumption,First hire Feb 1,Second hire Mar 1
+Display name,First new technician,Second new technician
+Start date,2027-02-01,2027-03-01
+Hourly wage,$28,$28
+Burden multiplier,1.40,1.40
+Wage months in 2027,11,10
+Loaded annual wages + burden,"$74,741","$67,947"
+Weekly sales minimum,"$7,500","$7,500"
+Commission above minimum,10.0%,10.0%
+Vehicle / month,$650,$0
+Uses existing truck,No — adds 3rd truck,Yes — Dustin’s truck
+Extra marketing / month,"$2,000",$0
+Startup tools + uniforms,"$2,900","$2,900"
+Month 1 / 2 / 3+ ramp,50% / 75% / 100%,50% / 75% / 100%
+Loaded monthly at 100% ramp,"$10,270","$6,870"
