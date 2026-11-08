@@ -33,6 +33,8 @@ function job(partial: Partial<Job> & Pick<Job, "date" | "customer" | "technician
     isSample: true,
     externalId: "",
     notes: "SAMPLE DATA",
+    city: "richardson",
+    zip: "75081",
     ...partial,
   };
 }
@@ -157,8 +159,12 @@ export function buildSampleState(): AppState {
       marketing: 1500,
       software: 200,
       loanPayments: 0,
+      ownerSalary: 2000,
       ownerDistributions: i % 2 === 0 ? 2000 : 0,
+      debtPrincipal: 0,
+      taxes: 0,
       other: 350,
+      majorBills: i === 1 ? "DEMO: estimated insurance installment" : "",
       notes: "SAMPLE DATA",
       isSample: true,
     });

@@ -173,8 +173,14 @@ export function forecastUnitEconomics(state: AppState, ticket: number) {
   };
 }
 
-export function producingTechs(employees: Employee[]): Employee[] {
-  return employees.filter((e) => e.active && e.canRunCalls);
+export function producingTechs(employees: Employee[], asOf = todayISO()): Employee[] {
+  return employees.filter((e) => {
+    if (!e.active || !e.canRunCalls) return false;
+    if (e.startDate && e.startDate > asOf) return false;
+    if (e.endDate && e.endDate < asOf) return false;
+    if (e.producingEndDate && e.producingEndDate <= asOf) return false;
+    return true;
+  });
 }
 
 export function helpersOn(employees: Employee[], techId: string): Employee[] {
@@ -616,13 +622,16 @@ export function simulate(s: ScenarioAssumptions, processingRate: number, members
   const capacityJobs = ceilWhole(s.technicians * s.callsPerTechDay * s.workingDays * s.closeRate);
   const capacityRevenue = s.technicians * s.callsPerTechDay * s.workingDays * s.averageTicket;
   const usedRevenue = Math.min(revenue, capacityRevenue);
-  const laborHours = s.technicians * 8 * s.workingDays;
-  const laborCost = laborHours * s.laborWage * s.laborBurden;
+  const laborHours = s.technicians * s.workingDays * 8;
+  const techLabor = laborHours * s.laborWage * s.laborBurden;
+  const apprenticeLabor = s.hireApprentice ? s.workingDays * 8 * (s.apprenticeWage || 18) * s.laborBurden : 0;
+  const laborCost = techLabor + apprenticeLabor;
   const materials = usedRevenue * s.materialCostPct;
   const subs = usedRevenue * s.subCostPct;
   const callbacks = usedRevenue * s.callbackRate * 0.35;
   const processing = usedRevenue * processingRate;
   const membershipGp = s.membershipSalesPerMonth * membershipAnnual * 0.7;
+  const marketing = s.marketingBudget;
   const grossProfit = usedRevenue * s.grossMargin - callbacks + membershipGp;
   const contributionProfit = grossProfit - processing;
   const contributionMargin = usedRevenue > 0 ? contributionProfit / usedRevenue : 0;
@@ -631,7 +640,7 @@ export function simulate(s: ScenarioAssumptions, processingRate: number, members
     contributionMargin > 0 ? s.monthlyOverhead / contributionMargin : Infinity;
   const daily = usedRevenue / Math.max(s.workingDays, 1);
   const beDayIndex = daily > 0 ? ceilWhole(Math.min(beRevenue, usedRevenue) / daily) : null;
-  const cashGeneration = operatingProfit + (laborCost * 0.0);
+  const requiredCalls = s.closeRate > 0 ? ceilWhole(soldJobs / s.closeRate) : null;
   return {
     incoming,
     soldJobs,
@@ -639,11 +648,13 @@ export function simulate(s: ScenarioAssumptions, processingRate: number, members
     unconstrainedRevenue: revenue,
     capacityJobs,
     laborCost,
+    apprenticeLabor,
     materials,
     subs,
     processing,
     callbacks,
     membershipGp,
+    marketing,
     grossProfit,
     operatingProfit,
     breakEvenRevenue: beRevenue,
@@ -653,8 +664,9 @@ export function simulate(s: ScenarioAssumptions, processingRate: number, members
     notProjectedToBreakEven: !(Number.isFinite(beRevenue) && usedRevenue >= beRevenue),
     revenuePerTech: s.technicians > 0 ? usedRevenue / s.technicians : 0,
     revenuePerCrewHour: laborHours > 0 ? usedRevenue / laborHours : 0,
-    cashGeneration: cashGeneration,
+    cashGeneration: operatingProfit,
     laborPct: usedRevenue > 0 ? laborCost / usedRevenue : 0,
+    requiredCalls,
   };
 }
 
@@ -730,7 +742,10 @@ export function cashForecast(weeks: CashWeek[], beginning: number): CashWeek[] {
       w.marketing +
       w.software +
       w.loanPayments +
+      (w.ownerSalary ?? 0) +
       w.ownerDistributions +
+      (w.debtPrincipal ?? 0) +
+      (w.taxes ?? 0) +
       w.other;
     const ending = start + inflows - outflows;
     bal = ending;
@@ -750,7 +765,10 @@ export function endingCash(week: CashWeek): number {
     week.marketing -
     week.software -
     week.loanPayments -
+    (week.ownerSalary ?? 0) -
     week.ownerDistributions -
+    (week.debtPrincipal ?? 0) -
+    (week.taxes ?? 0) -
     week.other
   );
 }

@@ -2,9 +2,9 @@
 
 import { addDays, formatLong, isWorkingDay, weekStartMonday } from "@/lib/calendar";
 import { money } from "@/lib/format";
-import { dailyTargetRemaining, jobEconomics, commissionsByJob } from "@/lib/finance";
+import { dailyTargetRemaining, jobEconomics, commissionsByJob, producingTechs } from "@/lib/finance";
 import { newJob, useStore } from "@/lib/store";
-import type { ArrivalWindow, Job, JobCategory, JobStatus, OptionsPresented } from "@/lib/types";
+import type { ArrivalWindow, Job, JobCategory, JobStatus, OptionsPresented, ServiceCity } from "@/lib/types";
 import { useState } from "react";
 import { Btn, Card, NumberField, SelectField, TextField } from "../ui";
 
@@ -19,7 +19,7 @@ const WINDOW_LABEL: Record<ArrivalWindow, string> = {
 export function ScheduleView() {
   const { state, today, setState } = useStore();
   const [date, setDate] = useState(today);
-  const techs = state.employees.filter((e) => e.active && e.canRunCalls);
+  const techs = producingTechs(state.employees, date);
   const plan = dailyTargetRemaining(state, date, state.settings.weeklyRevenueGoal);
   const dayJobs = state.jobs.filter((j) => j.date === date);
   const commissionMap = commissionsByJob(state.jobs, state.employees);
@@ -156,6 +156,17 @@ function JobCard({
     <div className="mb-2 rounded-lg border border-slate-200 bg-paper p-2">
       <TextField label="Customer" value={job.customer} onChange={(v) => onChange({ customer: v })} />
       <TextField label="Job type" value={job.jobType} onChange={(v) => onChange({ jobType: v })} />
+      <SelectField
+        label="City"
+        value={job.city ?? "other"}
+        onChange={(v) => onChange({ city: v as ServiceCity })}
+        options={[
+          { value: "richardson", label: "Richardson" },
+          { value: "plano", label: "Plano" },
+          { value: "other", label: "Other DFW" },
+        ]}
+      />
+      <TextField label="ZIP" value={job.zip ?? ""} onChange={(v) => onChange({ zip: v })} />
       <SelectField
         label="Technician"
         value={job.technicianId}

@@ -11,9 +11,14 @@ export type PricingJobKind =
   | "subcontractor_heavy";
 export type DataMode = "empty" | "forecast" | "actual" | "sample";
 export type ViewId =
+  | "today"
   | "dashboard"
+  | "budget"
+  | "hiring"
+  | "labor"
   | "breakeven"
   | "simulator"
+  | "market"
   | "technicians"
   | "schedule"
   | "pricing"
@@ -24,7 +29,11 @@ export type ViewId =
   | "import"
   | "report"
   | "settings";
-export type ScorecardPeriod = "day" | "week" | "month" | "ytd";
+export type ScorecardPeriod = "day" | "week" | "month" | "quarter" | "ytd" | "year";
+export type ServiceCity = "richardson" | "plano" | "other";
+export type BudgetGroup = "revenue" | "cogs" | "opex";
+export type LineSource = "budget" | "actual" | "forecast";
+export type IntegrationKind = "quickbooks" | "podium" | "csv" | "excel" | "manual";
 
 export interface Skill {
   name: string;
@@ -49,6 +58,16 @@ export interface Employee {
   targetCallsPerDay: number;
   targetAvgTicket: number;
   targetCloseRate: number;
+  startDate: string | null;
+  endDate: string | null;
+  /** Inclusive date the person stops counting as a revenue-producing truck. Owner can stay employed in management. */
+  producingEndDate: string | null;
+  paidHoursPerDay: number;
+  productiveHoursPerDay: number;
+  overtimeHoursMonthly: number;
+  ptoDaysPerYear: number;
+  trainingDaysPerYear: number;
+  callbackRate: number;
 }
 
 export interface Job {
@@ -83,6 +102,8 @@ export interface Job {
   isSample: boolean;
   externalId: string;
   notes: string;
+  city: ServiceCity;
+  zip: string;
 }
 
 export interface DailyLog {
@@ -104,8 +125,10 @@ export interface MarketingSource {
   leads: number;
   booked: number;
   sold: number;
+  completed: number;
   revenue: number;
   grossProfit: number;
+  city: ServiceCity | "both";
   isSample: boolean;
 }
 
@@ -138,8 +161,12 @@ export interface CashWeek {
   marketing: number;
   software: number;
   loanPayments: number;
+  ownerSalary: number;
   ownerDistributions: number;
+  debtPrincipal: number;
+  taxes: number;
   other: number;
+  majorBills: string;
   notes: string;
   isSample: boolean;
 }
@@ -176,6 +203,9 @@ export interface Settings {
   weeklyRevenueGoal: number;
   monthlyRevenueGoal: number;
   annualProfitGoal: number;
+  targetNetMargin: number;
+  growthReserveRate: number;
+  goalsApproved: boolean;
   targetGrossMarginLow: number;
   targetGrossMarginHigh: number;
   averageTicket: number;
@@ -208,6 +238,11 @@ export interface Settings {
   marketingBudgetMonthly: number;
   assumedMaterialsPct: number;
   assumedSubPct: number;
+  cashReserveTarget: number;
+  planningYear: number;
+  bookingRate: number;
+  ownerMonthlySalary: number;
+  plannedMonthlyDistribution: number;
   funnel: FunnelRates;
   pricingKinds: PricingKindConfig[];
   companyName: string;
@@ -217,11 +252,14 @@ export interface Settings {
 }
 
 export interface ScenarioAssumptions {
+  id: string;
   name: string;
+  lockedPreset: boolean;
   averageTicket: number;
   closeRate: number;
   incomingCallsPerDay: number;
   technicians: number;
+  hireApprentice: boolean;
   workingDays: number;
   grossMargin: number;
   monthlyOverhead: number;
@@ -230,6 +268,7 @@ export interface ScenarioAssumptions {
   subCostPct: number;
   laborWage: number;
   laborBurden: number;
+  apprenticeWage: number;
   membershipSalesPerMonth: number;
   callbackRate: number;
   callsPerTechDay: number;
@@ -247,7 +286,119 @@ export interface AppState {
   cashWeeks: CashWeek[];
   monthlyActuals: MonthlyActual[];
   scenarios: [ScenarioAssumptions, ScenarioAssumptions, ScenarioAssumptions];
+  customScenarios: ScenarioAssumptions[];
+  plan: Plan2027;
+  dailyChecklists: DailyChecklist[];
+  importHistory: ImportEvent[];
+  integrations: IntegrationStatus;
   updatedAt: string;
+}
+
+export interface BudgetLine {
+  id: string;
+  name: string;
+  group: BudgetGroup;
+  monthlyBudget: number[];
+  monthlyActual: number[];
+  monthlyForecast: number[];
+}
+
+export interface HiringPlan {
+  employeeId: string;
+  startDate: string;
+  displayName: string;
+  hourlyWage: number;
+  weeklySalesThreshold: number;
+  commissionRate: number;
+  laborBurden: number;
+  paidHoursPerWeek: number;
+  productiveHoursPerDay: number;
+  vehicleMonthly: number;
+  fuelMonthly: number;
+  insuranceMonthly: number;
+  toolsMonthly: number;
+  uniformsMonthly: number;
+  startupTools: number;
+  startupUniforms: number;
+  extraMarketingMonthly: number;
+  usesExistingTruck: boolean;
+  rampFeb: number;
+  rampMar: number;
+  rampAprOnward: number;
+  cashMonthsRequired: number;
+  minIncomingCallsPerDay: number;
+}
+
+export interface MarketAssumptions {
+  richardsonHouseholds: number;
+  planoHouseholds: number;
+  richardsonOwnerOccupied: number;
+  planoOwnerOccupied: number;
+  richardsonOwnerShare: number;
+  planoOwnerShare: number;
+  richardsonMedianYearBuilt: number;
+  planoMedianYearBuilt: number;
+  richardsonDetachedShare: number;
+  planoDetachedShare: number;
+  jobsPerServiceableHhYear: number;
+  averageTicket: number;
+  existingCustomersRichardson: number;
+  existingCustomersPlano: number;
+  driveMinutesSavedPerJob: number;
+  minutesPerCompletedJob: number;
+  serviceableMode: "owner_occupied" | "owner_detached" | "all_households";
+}
+
+export interface MonthlyCashPlan {
+  month: number;
+  collections: number;
+  payroll: number;
+  materials: number;
+  subcontractors: number;
+  overhead: number;
+  taxes: number;
+  debtPrincipal: number;
+  ownerSalary: number;
+  ownerDistributions: number;
+  other: number;
+  notes: string;
+}
+
+export interface Plan2027 {
+  year: number;
+  draft: boolean;
+  budgetLocked: boolean;
+  budgetLockedAt: string | null;
+  ownerOffTruckDate: string;
+  lines: BudgetLine[];
+  hiring: HiringPlan;
+  secondHire: HiringPlan;
+  market: MarketAssumptions;
+  monthlyCash: MonthlyCashPlan[];
+  lastBudgetEdit: string | null;
+  lastForecastEdit: string | null;
+  lastActualEdit: string | null;
+  /** Cash set aside for growth by month. Not an operating expense and not deducted from accounting net profit. */
+  growthAllocated: number[];
+}
+
+export interface DailyChecklist {
+  date: string;
+  items: { id: string; label: string; done: boolean }[];
+}
+
+export interface ImportEvent {
+  id: string;
+  at: string;
+  source: IntegrationKind;
+  kind: string;
+  rows: number;
+  notes: string;
+}
+
+export interface IntegrationStatus {
+  quickbooks: { connected: boolean; lastSync: string | null };
+  podium: { connected: boolean; lastSync: string | null };
 }
 
 export interface MissingInfo {

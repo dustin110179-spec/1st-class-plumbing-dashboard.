@@ -1,5 +1,5 @@
 import { uid } from "./format";
-import type { AppState, Job, JobCategory, JobStatus } from "./types";
+import type { AppState, Job, JobCategory, JobStatus, ServiceCity } from "./types";
 
 export interface ColumnMap {
   date?: string;
@@ -18,6 +18,8 @@ export interface ColumnMap {
   source?: string;
   externalId?: string;
   category?: string;
+  city?: string;
+  zip?: string;
 }
 
 export function parseCsv(text: string): { headers: string[]; rows: Record<string, string>[] } {
@@ -78,6 +80,8 @@ export function suggestMap(headers: string[]): ColumnMap {
     source: find("source", "campaign", "lead"),
     externalId: find("id", "invoice #", "job #", "number"),
     category: find("category", "type", "department"),
+    city: find("city", "market"),
+    zip: find("zip", "postal"),
   };
 }
 
@@ -105,6 +109,13 @@ function statusCell(v: string): JobStatus {
   if (n.includes("sched") || n.includes("book")) return "scheduled";
   if (n.includes("estim")) return "estimate";
   return "completed";
+}
+
+function cityCell(v: string): ServiceCity {
+  const n = v.toLowerCase();
+  if (n.includes("richard")) return "richardson";
+  if (n.includes("plano")) return "plano";
+  return "other";
 }
 
 function categoryCell(v: string): JobCategory {
@@ -185,6 +196,8 @@ export function importJobs(
       isSample: false,
       externalId,
       notes: "Imported",
+      city: cityCell(get(map.city)),
+      zip: get(map.zip),
     });
     imported += 1;
   }
@@ -215,6 +228,8 @@ export function exportJobsCsv(jobs: Job[]): string {
     "callback",
     "isSample",
     "externalId",
+    "city",
+    "zip",
   ];
   const lines = [headers.join(",")];
   for (const j of jobs) {
@@ -241,6 +256,8 @@ export function exportJobsCsv(jobs: Job[]): string {
       j.callback,
       j.isSample,
       csvEscape(j.externalId),
+      j.city,
+      csvEscape(j.zip),
     ];
     lines.push(row.join(","));
   }

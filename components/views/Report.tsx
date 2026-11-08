@@ -53,7 +53,7 @@ export function ReportView() {
       </Card>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Tile k="Revenue vs $100k goal" v={`${money(p.mtdCompletedRevenue)} / ${money(p.monthlyRevenueGoal)}`} />
+        <Tile k="Revenue vs monthly goal" v={`${money(p.mtdCompletedRevenue)} / ${money(p.monthlyRevenueGoal)}`} />
         <Tile k="Projected month-end revenue" v={money(p.projectedMonthEndRevenue)} />
         <Tile k="Gross profit (projected)" v={money(p.projectedGrossProfit)} />
         <Tile k="Contribution profit (projected)" v={money(p.projectedContributionProfit)} />

@@ -227,6 +227,82 @@ export function ProgressBar({
   );
 }
 
+export function TargetProgressBar({
+  value,
+  goal,
+  max,
+  valueLabel,
+  goalLabel,
+}: {
+  value: number;
+  goal: number;
+  max?: number;
+  valueLabel?: string;
+  goalLabel?: string;
+}) {
+  const ceiling = Math.max(max ?? goal * 1.15, value, goal, 1);
+  const vPct = clamp((value / ceiling) * 100, 0, 100);
+  const gPct = clamp((goal / ceiling) * 100, 0, 100);
+  const tone = value >= goal ? "bg-profit" : value >= goal * 0.7 ? "bg-navy" : "bg-brand-red";
+  return (
+    <div>
+      <div className="relative h-4 w-full rounded-full bg-slate-100">
+        <div className={`absolute inset-y-0 left-0 rounded-full ${tone}`} style={{ width: `${vPct}%` }} />
+        <div
+          className="absolute top-[-4px] h-6 w-0.5 bg-brand-red"
+          style={{ left: `calc(${gPct}% - 1px)` }}
+          title="Target"
+        />
+      </div>
+      <div className="mt-1 flex justify-between text-[10px] uppercase tracking-wide text-slate-500">
+        <span>{valueLabel ?? "Actual / forecast"} {money(value)}</span>
+        <span className="text-brand-red">{goalLabel ?? "Goal"} {money(goal)}</span>
+      </div>
+    </div>
+  );
+}
+
+export function DraftBanner() {
+  return (
+    <div className="rounded-lg border border-brand-yellow/60 bg-brand-yellow/20 px-3 py-2 text-sm text-navy">
+      <strong>DRAFT 2027 PLAN</strong> — proposed goals, staffing, and budget figures are not approved. Do not treat the 25% net margin as achieved until the locked budget supports it.
+    </div>
+  );
+}
+
+export function PlanningBanner() {
+  return (
+    <div className="rounded-lg border border-navy/20 bg-navy-100 px-3 py-2 text-sm text-navy">
+      <strong>2027 PLANNING FIGURES</strong> — revenue mix, hiring costs, and market demand below are editable planning assumptions, not 2027 actual results. This plan remains in draft until the budget is approved.
+    </div>
+  );
+}
+
+export function PeriodToggle({
+  value,
+  onChange,
+  options = ["day", "week", "month", "quarter", "year"],
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options?: string[];
+}) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {options.map((p) => (
+        <button
+          key={p}
+          type="button"
+          onClick={() => onChange(p)}
+          className={`rounded px-2 py-1 text-xs font-semibold uppercase ${value === p ? "bg-navy text-white" : "bg-navy-100 text-navy"}`}
+        >
+          {p}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function Gauge({
   value,
   min = 0,
@@ -308,7 +384,7 @@ export function SampleBanner({ on }: { on: boolean }) {
   if (!on) return null;
   return (
     <div className="rounded-lg border border-brand-yellow bg-[#FFF8D1] px-3 py-2 text-sm text-navy">
-      <strong>SAMPLE DATA</strong> — these numbers are for demonstration only and are not actual 1st Class Plumbing performance.
+      <strong>DEMO DATA</strong> — these numbers are for demonstration only and are not actual 1st Class Plumbing 2027 results. Clear them in Settings before you enter real books.
     </div>
   );
 }

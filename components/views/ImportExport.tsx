@@ -22,6 +22,8 @@ const FIELDS: { key: keyof ColumnMap; label: string }[] = [
   { key: "source", label: "Lead source" },
   { key: "externalId", label: "Job / invoice ID" },
   { key: "category", label: "Category" },
+  { key: "city", label: "City (Richardson / Plano / other)" },
+  { key: "zip", label: "ZIP" },
 ];
 
 export function ImportExportView() {
@@ -56,9 +58,9 @@ export function ImportExportView() {
 
   return (
     <div className="space-y-4">
-      <Card title="CSV import — Podium FSM, Housecall Pro, QuickBooks">
+      <Card title="CSV / Excel import — Podium and QuickBooks files">
         <p className="text-sm text-slate-600">
-          Exports do not share one layout. Upload a CSV, map each column, then import. Existing jobs with the same external ID (or the same date, customer, and sold amount) are not imported twice.
+          Live QuickBooks and Podium connections are <strong>not active</strong>. Upload a CSV export, map columns, then import. Existing jobs with the same external ID (or the same date, customer, and sold amount) are not imported twice. Imports are written to history with a timestamp.
         </p>
         <input
           className="mt-3 block text-sm"
@@ -95,7 +97,20 @@ export function ImportExportView() {
             <Btn
               onClick={() => {
                 const { state: next, imported, skipped } = importJobs(state, rows, map);
-                setState(next);
+                setState({
+                  ...next,
+                  importHistory: [
+                    ...next.importHistory,
+                    {
+                      id: `imp_${Date.now()}`,
+                      at: new Date().toISOString(),
+                      source: "csv",
+                      kind: "jobs",
+                      rows: imported,
+                      notes: `Skipped ${skipped}. QuickBooks/Podium live sync is not connected.`,
+                    },
+                  ],
+                });
                 setResult(`Imported ${imported} jobs. Skipped ${skipped} duplicates or rows without a date.`);
               }}
             >
@@ -123,7 +138,22 @@ export function ImportExportView() {
             Download full backup JSON
           </Btn>
         </div>
-        <p className="mt-2 text-xs text-slate-500">{state.jobs.length} jobs on file. Sample jobs stay labeled isSample=true.</p>
+        <p className="mt-2 text-xs text-slate-500">
+          {state.jobs.length} jobs on file. Last updated {state.updatedAt}. DEMO jobs stay labeled isSample=true.
+        </p>
+      </Card>
+      <Card title="Import history">
+        {state.importHistory.length === 0 ? (
+          <p className="text-sm text-slate-600">No imports yet. Manual edits still save locally and to the app database when published.</p>
+        ) : (
+          <ul className="space-y-1 text-sm">
+            {state.importHistory.slice().reverse().map((h) => (
+              <li key={h.id}>
+                {h.at} · {h.source} · {h.kind} · {h.rows} rows · {h.notes}
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
     </div>
   );

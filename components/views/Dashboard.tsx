@@ -8,12 +8,17 @@ import {
   capacityPlan,
   heatmap,
   lostEstimates,
+  monthlyFromWeekly,
   paceSeries,
   producingTechs,
   projectMonth,
   serviceVsContractor,
 } from "@/lib/finance";
+import { periodSnapshot, pnlYear, profitTracker, variance } from "@/lib/plan";
 import { useStore } from "@/lib/store";
+import type { ScorecardPeriod } from "@/lib/types";
+import { useState } from "react";
+import { ProfitGrowthTracker } from "./ProfitGrowthTracker";
 import {
   CartesianGrid,
   Legend,
@@ -24,11 +29,21 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Card, Gauge, KpiCard, Missing, ProgressBar, StatusBanner } from "../ui";
+import { Card, DraftBanner, Gauge, KpiCard, Missing, PeriodToggle, ProgressBar, StatusBanner } from "../ui";
 
 export function DashboardView() {
   const { state, today, setView } = useStore();
+  const [period, setPeriod] = useState<ScorecardPeriod>("month");
   const p = projectMonth(state, today);
+  const tracker = profitTracker(state, today);
+  const snap = periodSnapshot(state, today, period);
+  const budgetYear = pnlYear(state.plan.lines, "monthlyBudget");
+  const revVar = variance(budgetYear.revenue / 12, p.projectedMonthEndRevenue, true);
+  const gpVar = variance(budgetYear.grossProfit / 12, p.projectedGrossProfit, true);
+  const opexBudget = budgetYear.opex / 12;
+  const opexActual = p.fixedOperatingExpenses;
+  const opexVar = variance(opexBudget, opexActual, false);
+  const npVar = variance(tracker.goalMonthly, p.projectedOperatingProfit, true);
   const alerts = topPriorities(state, today);
   const series = paceSeries(state, today).map((r) => ({
     ...r,
@@ -43,7 +58,49 @@ export function DashboardView() {
 
   return (
     <div className="space-y-4">
+      <DraftBanner />
       <StatusBanner status={p.status} label={p.statusLabel} />
+      <ProfitGrowthTracker />
+
+      <Card title="Period scorecard" action={<PeriodToggle value={period} onChange={(v) => setPeriod(v as ScorecardPeriod)} />}>
+        <p className="text-sm text-slate-600">
+          {snap.label}: completed revenue on file {money(snap.completedRevenue)}. Gross profit is not cash. Cash available {money(tracker.cashAvailable)}. Monthly profit goal in the draft plan is {money(tracker.goalMonthly)}.
+        </p>
+      </Card>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          label="Revenue budget vs actual/forecast"
+          value={money(p.projectedMonthEndRevenue)}
+          sub={`Budget ${money(state.settings.monthlyRevenueGoal)} · variance ${signedMoney(revVar.amount)}`}
+          tone={revVar.favorable ? "green" : "red"}
+          forecast
+        />
+        <KpiCard
+          label="Gross profit budget vs actual/forecast"
+          value={money(p.projectedGrossProfit)}
+          sub={`Monthly budget ${money(budgetYear.grossProfit / 12)} · variance ${signedMoney(gpVar.amount)}`}
+          tone={gpVar.favorable ? "green" : "red"}
+          forecast
+        />
+        <KpiCard
+          label="Operating expenses budget vs actual"
+          value={money(opexActual)}
+          sub={`Monthly budget ${money(opexBudget)} · variance ${signedMoney(opexVar.amount)} (under is favorable)`}
+          tone={opexVar.favorable ? "green" : "red"}
+        />
+        <KpiCard
+          label="Net profit budget vs actual/forecast"
+          value={money(p.projectedOperatingProfit)}
+          sub={`Goal ${money(tracker.goalMonthly)} · variance ${signedMoney(npVar.amount)}`}
+          tone={npVar.favorable ? "green" : "red"}
+          forecast
+        />
+        <KpiCard label="Weekly cash break-even (benchmark)" value={money(state.settings.weeklyBreakEven)} sub="Not an expense and not added to the $47,000." />
+        <KpiCard label="Monthly cash break-even (52/12)" value={money(monthlyFromWeekly(state.settings.weeklyBreakEven))} />
+        <KpiCard label="Cash available" value={money(state.settings.beginningBankBalance)} sub={`Reserve target ${money(state.settings.cashReserveTarget)}`} />
+        <KpiCard label="Revenue needed to reach goal" value={money(p.revenueRemainingToGoal)} tone={p.revenueRemainingToGoal === 0 ? "green" : "yellow"} />
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <KpiCard
@@ -92,7 +149,7 @@ export function DashboardView() {
           sub={`${num(p.jobsNeededToBreakEven)} sold jobs · ${num(p.callsPerDayToBreakEven)} incoming/day`}
         />
         <KpiCard
-          label="Calls needed to hit $100,000"
+          label="Calls needed to hit monthly revenue goal"
           value={num(p.callsNeededToGoal)}
           sub={`${num(p.jobsNeededToGoal)} sold jobs · ${num(p.callsPerDayToGoal)} incoming/day`}
         />
@@ -146,7 +203,7 @@ export function DashboardView() {
                 <Legend />
                 <Line type="monotone" dataKey="actual" name="Actual" stroke="#0A2540" strokeWidth={2} dot={false} connectNulls />
                 <Line type="monotone" dataKey="required" name="Required to break even" stroke="#C12216" strokeDasharray="4 4" dot={false} />
-                <Line type="monotone" dataKey="goal" name="Required to $100k" stroke="#C9A227" strokeDasharray="4 4" dot={false} />
+                <Line type="monotone" dataKey="goal" name="Required to monthly revenue goal" stroke="#C9A227" strokeDasharray="4 4" dot={false} />
                 <Line type="monotone" dataKey="forecast" name="Forecast" stroke="#147A3F" dot={false} />
               </LineChart>
             </ResponsiveContainer>

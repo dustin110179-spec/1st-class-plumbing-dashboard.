@@ -70,7 +70,7 @@ export function BreakEvenView() {
             <dd className="tabular text-right font-semibold">{p.workingDaysRemaining.length}</dd>
             <dt>Working days after break-even</dt>
             <dd className="tabular text-right font-semibold">{p.workingDaysAfterBreakEven ?? "—"}</dd>
-            <dt>Calls to hit $100,000</dt>
+            <dt>Calls to hit monthly revenue goal</dt>
             <dd className="tabular text-right font-semibold">{num(p.callsNeededToGoal)}</dd>
           </dl>
           <p className="mt-3 text-xs text-slate-500">

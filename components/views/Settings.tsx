@@ -2,7 +2,7 @@
 
 import { defaultHolidays } from "@/lib/calendar";
 import { useStore } from "@/lib/store";
-import { Btn, Card, NumberField, TextField } from "../ui";
+import { Btn, Card, DraftBanner, NumberField, TextField } from "../ui";
 
 export function SettingsView() {
   const { state, patchSettings, resetDefaults, loadSample, clearSample, setState } = useStore();
@@ -10,6 +10,7 @@ export function SettingsView() {
 
   return (
     <div className="space-y-4">
+      <DraftBanner />
       <Card
         title="Company and starting numbers"
         action={
@@ -18,7 +19,7 @@ export function SettingsView() {
               Load SAMPLE DATA
             </Btn>
             <Btn tone="ghost" onClick={clearSample}>
-              Clear sample / start clean
+              Clear DEMO DATA / start clean
             </Btn>
             <Btn tone="red" onClick={resetDefaults}>
               Reset all defaults
@@ -39,6 +40,8 @@ export function SettingsView() {
           <NumberField label="Weekly revenue goal" money value={s.weeklyRevenueGoal} onChange={(n) => patchSettings({ weeklyRevenueGoal: n })} />
           <NumberField label="Monthly revenue goal" money value={s.monthlyRevenueGoal} onChange={(n) => patchSettings({ monthlyRevenueGoal: n })} />
           <NumberField label="Annual profit goal" money value={s.annualProfitGoal} onChange={(n) => patchSettings({ annualProfitGoal: n })} />
+          <NumberField label="Target net profit margin" percent value={s.targetNetMargin} min={0.05} max={0.5} step={0.01} onChange={(n) => patchSettings({ targetNetMargin: n, annualProfitGoal: s.annualRevenueGoal * n })} />
+          <NumberField label="Growth reserve rate (of revenue)" percent value={s.growthReserveRate} min={0} max={0.25} step={0.01} onChange={(n) => patchSettings({ growthReserveRate: n })} />
           <NumberField label="Target GM low" percent value={s.targetGrossMarginLow} min={0.2} max={0.9} step={0.01} onChange={(n) => patchSettings({ targetGrossMarginLow: n })} />
           <NumberField label="Target GM high" percent value={s.targetGrossMarginHigh} min={0.2} max={0.9} step={0.01} onChange={(n) => patchSettings({ targetGrossMarginHigh: n })} />
           <NumberField label="Average service ticket" money value={s.averageTicket} onChange={(n) => patchSettings({ averageTicket: n })} />
@@ -57,7 +60,18 @@ export function SettingsView() {
           <NumberField label="Marketing budget / month" money value={s.marketingBudgetMonthly} onChange={(n) => patchSettings({ marketingBudgetMonthly: n })} />
           <NumberField label="Software / month" money value={s.softwareMonthly} onChange={(n) => patchSettings({ softwareMonthly: n })} />
           <NumberField label="Loan payment / month" money value={s.loanMonthly} onChange={(n) => patchSettings({ loanMonthly: n })} />
+          <NumberField label="Cash reserve target" money value={s.cashReserveTarget} onChange={(n) => patchSettings({ cashReserveTarget: n })} />
+          <NumberField label="Booking rate (lead → booked)" percent value={s.bookingRate} min={0} max={1} step={0.01} onChange={(n) => patchSettings({ bookingRate: n })} />
+          <NumberField label="Owner salary / month" money value={s.ownerMonthlySalary} onChange={(n) => patchSettings({ ownerMonthlySalary: n })} />
+          <NumberField label="Planned owner distributions / month" money value={s.plannedMonthlyDistribution} onChange={(n) => patchSettings({ plannedMonthlyDistribution: n })} />
+          <NumberField label="Planning year" value={s.planningYear} onChange={(n) => patchSettings({ planningYear: n })} />
         </div>
+        <label className="mt-4 flex items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-1" checked={s.goalsApproved} onChange={(e) => patchSettings({ goalsApproved: e.target.checked })} />
+          <span>
+            Approve these as the final 2027 goals. Until checked, the 25% net margin and 10% growth reserve stay in draft. Approving goals does not lock the operating budget.
+          </span>
+        </label>
       </Card>
 
       <Card title="What is already inside the $47,000 — never count twice">
@@ -127,6 +141,17 @@ export function SettingsView() {
         >
           Restore standard U.S. holidays including Thanksgiving Friday
         </button>
+      </Card>
+
+      <Card title="Integrations — not connected">
+        <p className="text-sm text-slate-600">
+          QuickBooks for accounting actuals and Podium for jobs are prepared as import sources. They are <strong>not live</strong>. Use CSV / Excel on the Import page until a connection is built and tested.
+        </p>
+        <ul className="mt-2 list-disc pl-5 text-sm text-slate-600">
+          <li>QuickBooks: {state.integrations.quickbooks.connected ? "Connected" : "Not connected"}{state.integrations.quickbooks.lastSync ? ` · last sync ${state.integrations.quickbooks.lastSync}` : ""}</li>
+          <li>Podium: {state.integrations.podium.connected ? "Connected" : "Not connected"}{state.integrations.podium.lastSync ? ` · last sync ${state.integrations.podium.lastSync}` : ""}</li>
+        </ul>
+        <p className="mt-2 text-xs text-slate-500">Last saved {state.updatedAt}</p>
       </Card>
 
       <Card title="12-month actuals (optional, for trends)">

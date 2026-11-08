@@ -1,10 +1,14 @@
-# 1st Class Plumbing — Business Command Center
+# 1st Class Plumbing — 2027 Budget & Profit Command Center
 
-Interactive operating dashboard for 1st Class Plumbing (Dallas, Texas). Tagline: **A Different Kind of Service.**
+Interactive financial operating system for 1st Class Plumbing (Richardson and Plano, Texas). Tagline: **A Different Kind of Service.**
 
-Live KPIs, break-even forecasting, what-if scenarios, technician scorecards, job pricing, marketing, memberships, and a 13-week cash forecast. Every assumption is editable. Data persists in the browser and, when published, in the app database.
+This is the daily command center for 2027: a Profit & Growth Tracker, an annual budget with lockable approved numbers, two hired technicians and an owner-off-the-truck plan (March 1), labor forecasts, what-if scenarios, Richardson/Plano market modeling, marketing ROI, cash and owner pay, and a morning Action Center.
 
-Starting numbers (weekly cash break-even $15,750, $47,000 overhead, goals, payroll) are preloaded. Use **Settings → Load SAMPLE DATA** for a labeled demonstration set that is not actual company performance.
+Proposed 2027 goals — 25% net profit and a 10% of revenue growth reserve — stay in **draft** until the budget is approved. The growth reserve is a cash allocation from profit, not an operating expense. $1.2M remains the initial revenue target; the tracker also shows the revenue required for a 25% net margin under the current cost structure.
+
+Use **Settings → Load SAMPLE DATA** for a labeled **DEMO DATA** set. Clear it before entering actual 2027 books. Planning figures (revenue mix, hire costs, market demand) are assumptions, not 2027 results.
+
+QuickBooks and Podium are **not live**. Import CSV/Excel on the Import page until those connections are built and tested.
 
 ```bash
 npm install

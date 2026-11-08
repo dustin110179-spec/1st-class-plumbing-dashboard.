@@ -34,7 +34,7 @@ export function TechniciansView() {
         }
       >
         <p className="text-sm text-slate-600">
-          Dustin produces and sells; his owner salary is in the $47,000 fixed expenses, so his job hours are not counted again as variable labor. Noah is office and also in fixed expenses. Brien’s commission is 10% of weekly sold revenue above $7,500. Nathan is scored as an apprentice and as Brien’s helper. Paid hours are independent of an eight-hour day.
+          Dustin produces and sells; his owner salary is in the $47,000 fixed expenses, so his job hours are not counted again as variable labor. Linda and Noah are office / CSR and also in fixed expenses. Brien’s commission is 10% of weekly sold revenue above $7,500. Nathan is scored as an apprentice and as Brien’s helper — not an independent truck. The February hire is hidden from producing-tech counts until his start date. Paid hours are independent of an eight-hour day. Helper labor on a job is assigned to that technician’s jobs.
         </p>
       </Card>
 

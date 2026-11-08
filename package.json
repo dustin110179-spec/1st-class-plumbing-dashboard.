@@ -6,7 +6,7 @@
     "dev": "next dev --hostname 127.0.0.1 --port 3000",
     "build": "next build && node scripts/migrate.mjs",
     "start": "next start --hostname 127.0.0.1 --port 3000",
-    "test": "tsx --test lib/finance.test.ts lib/calendar.test.ts"
+    "test": "tsx --test lib/finance.test.ts lib/calendar.test.ts lib/plan.test.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",

@@ -11,24 +11,46 @@ import {
   type ReactNode,
 } from "react";
 import { todayISO } from "./calendar";
-import { createDefaultState, DEFAULT_EMPLOYEES, DEFAULT_SETTINGS } from "./defaults";
+import { createDefaultPlan, createDefaultState, DEFAULT_EMPLOYEES, DEFAULT_MARKETING, DEFAULT_SETTINGS } from "./defaults";
 import { uid } from "./format";
 import { buildSampleState } from "./sample";
-import type { AppState, Employee, Job, ViewId } from "./types";
+import type { AppState, Employee, Job, Settings, ViewId } from "./types";
 
 const KEY = "fcpl-command-center-v1";
 
+function migrateEmployee(e: AppState["employees"][number]) {
+  return {
+    ...e,
+    payInFixedOverhead:
+      e.payInFixedOverhead ?? (e.role === "owner" || e.role === "office" || e.id === "dustin" || e.id === "noah" || e.id === "linda"),
+    startDate: e.startDate ?? (e.id === "tech3" ? "2027-02-01" : e.id === "tech4" ? "2027-03-01" : null),
+    endDate: e.endDate ?? null,
+    producingEndDate: e.producingEndDate ?? (e.id === "dustin" ? "2027-03-01" : null),
+    paidHoursPerDay: e.paidHoursPerDay ?? 8,
+    productiveHoursPerDay: e.productiveHoursPerDay ?? (e.canRunCalls ? 5.5 : 0),
+    overtimeHoursMonthly: e.overtimeHoursMonthly ?? 0,
+    ptoDaysPerYear: e.ptoDaysPerYear ?? 10,
+    trainingDaysPerYear: e.trainingDaysPerYear ?? 4,
+    callbackRate: e.callbackRate ?? 0,
+  };
+}
+
 function migrateState(parsed: AppState): AppState {
+  const savedSettings = parsed.settings as Partial<Settings> | undefined;
   const settings = { ...DEFAULT_SETTINGS, ...parsed.settings };
+  if (savedSettings && savedSettings.targetNetMargin == null) {
+    if (savedSettings.annualProfitGoal == null || savedSettings.annualProfitGoal === 100000) {
+      settings.annualProfitGoal = DEFAULT_SETTINGS.annualProfitGoal;
+    }
+    settings.targetNetMargin = DEFAULT_SETTINGS.targetNetMargin;
+    settings.growthReserveRate = DEFAULT_SETTINGS.growthReserveRate;
+    settings.goalsApproved = false;
+  }
   if (parsed.settings?.funnel) settings.funnel = parsed.settings.funnel;
   if (parsed.settings?.pricingKinds) settings.pricingKinds = parsed.settings.pricingKinds;
   if (parsed.settings?.workingWeekdays) settings.workingWeekdays = parsed.settings.workingWeekdays;
   if (parsed.settings?.holidays) settings.holidays = parsed.settings.holidays;
-  const employees = (parsed.employees ?? []).map((e) => ({
-    ...e,
-    payInFixedOverhead:
-      e.payInFixedOverhead ?? (e.role === "owner" || e.role === "office" || e.id === "dustin" || e.id === "noah"),
-  }));
+  const employees = (parsed.employees ?? []).map(migrateEmployee);
   for (const def of DEFAULT_EMPLOYEES) {
     if (!employees.some((e) => e.id === def.id)) employees.push(structuredClone(def));
   }
@@ -44,7 +66,77 @@ function migrateState(parsed: AppState): AppState {
     noah.role = "office";
     noah.canRunCalls = false;
   }
-  return { ...parsed, version: 1, settings, employees };
+  const linda = employees.find((e) => e.id === "linda");
+  if (linda) {
+    linda.payInFixedOverhead = true;
+    linda.role = "office";
+    linda.canRunCalls = false;
+  }
+  const marketing = (parsed.marketing ?? []).map((m) => ({
+    ...m,
+    completed: m.completed ?? 0,
+    city: m.city ?? "both",
+  }));
+  for (const def of DEFAULT_MARKETING) {
+    if (!marketing.some((m) => m.id === def.id)) marketing.push(structuredClone(def));
+  }
+  const jobs = (parsed.jobs ?? []).map((j) => ({
+    ...j,
+    city: j.city ?? "other",
+    zip: j.zip ?? "",
+  }));
+  const cashWeeks = (parsed.cashWeeks ?? []).map((w) => ({
+    ...w,
+    ownerSalary: w.ownerSalary ?? 0,
+    debtPrincipal: w.debtPrincipal ?? 0,
+    taxes: w.taxes ?? 0,
+    majorBills: w.majorBills ?? "",
+  }));
+  const scenarios = (parsed.scenarios ?? [undefined, undefined, undefined]).map((sc, i) => {
+    const fallback = createDefaultState().scenarios[i];
+    return {
+      ...fallback,
+      ...sc,
+      id: sc?.id ?? fallback.id,
+      lockedPreset: sc?.lockedPreset ?? true,
+      hireApprentice: sc?.hireApprentice ?? (i !== 0),
+      apprenticeWage: sc?.apprenticeWage ?? 18,
+    };
+  }) as AppState["scenarios"];
+  const defaultPlan = createDefaultPlan();
+  const staffingUpgrade = !parsed.plan?.secondHire;
+  const plan = staffingUpgrade
+    ? {
+        ...defaultPlan,
+        growthAllocated: parsed.plan?.growthAllocated?.length === 12 ? parsed.plan.growthAllocated : defaultPlan.growthAllocated,
+      }
+    : {
+        ...defaultPlan,
+        ...parsed.plan,
+        draft: parsed.plan.draft ?? true,
+        ownerOffTruckDate: parsed.plan.ownerOffTruckDate ?? "2027-03-01",
+        hiring: { ...defaultPlan.hiring, ...parsed.plan.hiring },
+        secondHire: { ...defaultPlan.secondHire, ...parsed.plan.secondHire },
+        growthAllocated: parsed.plan.growthAllocated?.length === 12 ? parsed.plan.growthAllocated : defaultPlan.growthAllocated,
+      };
+  return {
+    ...parsed,
+    version: 1,
+    settings,
+    employees,
+    jobs,
+    marketing,
+    cashWeeks,
+    scenarios,
+    customScenarios: parsed.customScenarios ?? [],
+    plan,
+    dailyChecklists: parsed.dailyChecklists ?? [],
+    importHistory: parsed.importHistory ?? [],
+    integrations: parsed.integrations ?? {
+      quickbooks: { connected: false, lastSync: null },
+      podium: { connected: false, lastSync: null },
+    },
+  };
 }
 
 function loadLocal(): AppState {
@@ -77,7 +169,7 @@ const Ctx = createContext<Store | null>(null);
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setStateRaw] = useState<AppState>(createDefaultState);
   const [today, setToday] = useState(() => todayISO());
-  const [view, setView] = useState<ViewId>("dashboard");
+  const [view, setView] = useState<ViewId>("today");
   const [hydrated, setHydrated] = useState(false);
   const saveTimer = useRef<number | null>(null);
   const skipServer = useRef(true);
@@ -190,6 +282,15 @@ export function newEmployee(): Employee {
     targetCallsPerDay: 3,
     targetAvgTicket: 1100,
     targetCloseRate: 0.8,
+    startDate: null,
+    endDate: null,
+    producingEndDate: null,
+    paidHoursPerDay: 8,
+    productiveHoursPerDay: 5.5,
+    overtimeHoursMonthly: 0,
+    ptoDaysPerYear: 10,
+    trainingDaysPerYear: 4,
+    callbackRate: 0.04,
   };
 }
 
@@ -226,5 +327,7 @@ export function newJob(date: string, technicianId: string): Job {
     isSample: false,
     externalId: "",
     notes: "",
+    city: "other",
+    zip: "",
   };
 }

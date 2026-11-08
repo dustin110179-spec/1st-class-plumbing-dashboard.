@@ -130,11 +130,18 @@ export function defaultHolidays(year: number): string[] {
 }
 
 export function periodRange(
-  period: "day" | "week" | "month" | "ytd",
+  period: "day" | "week" | "month" | "quarter" | "ytd" | "year",
   today: string,
 ): { from: string; to: string } {
   if (period === "day") return { from: today, to: today };
   if (period === "week") return { from: weekStartMonday(today), to: weekEndSunday(today) };
   if (period === "month") return { from: monthStart(today), to: monthEnd(today) };
+  if (period === "quarter") {
+    const q = Math.floor((Number(today.slice(5, 7)) - 1) / 3) * 3 + 1;
+    const from = `${today.slice(0, 4)}-${String(q).padStart(2, "0")}-01`;
+    const toMonth = q + 2;
+    return { from, to: monthEnd(`${today.slice(0, 4)}-${String(toMonth).padStart(2, "0")}-01`) };
+  }
+  if (period === "year") return { from: yearStart(today), to: `${today.slice(0, 4)}-12-31` };
   return { from: yearStart(today), to: today };
 }

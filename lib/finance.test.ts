@@ -123,6 +123,8 @@ describe("labor and commission", () => {
         isSample: false,
         externalId: "",
         notes: "",
+        city: "richardson",
+        zip: "75081",
       },
       {
         id: "b",
@@ -156,6 +158,8 @@ describe("labor and commission", () => {
         isSample: false,
         externalId: "",
         notes: "",
+        city: "plano",
+        zip: "75074",
       },
     ];
     const map = commissionsByJob(jobs, state.employees);
@@ -205,6 +209,8 @@ describe("labor and commission", () => {
       isSample: false,
       externalId: "",
       notes: "",
+      city: "richardson",
+      zip: "75080",
     };
     const econ = jobEconomics(job, state.employees, state.settings);
     assert.equal(econ.techLabor, 0);
