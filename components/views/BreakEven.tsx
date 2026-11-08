@@ -26,27 +26,39 @@ export function BreakEvenView() {
         }
       />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Revenue needed to break even" value={money(p.monthlyCashBreakEven)} sub="Weekly $15,750 × 52 / 12" />
-        <KpiCard label="Already produced (completed)" value={money(p.mtdCompletedRevenue)} />
-        <KpiCard label="Still needed" value={money(p.revenueRemainingToBreakEven)} tone="yellow" />
         <KpiCard
-          label="Expected month-end cash vs BE"
-          value={money(p.projectedCashProfit)}
-          tone={p.projectedCashProfit >= 0 ? "green" : "red"}
+          label="Cost-based break-even revenue"
+          value={money(p.monthlyCostBreakEven)}
+          sub={`${money(p.fixedOperatingExpenses)} fixed ÷ ${pct(p.contributionMargin)} contribution margin`}
+        />
+        <KpiCard label="Already produced (completed)" value={money(p.mtdCompletedRevenue)} />
+        <KpiCard label="Still needed to cover fixed expenses" value={money(p.revenueRemainingToBreakEven)} tone="yellow" />
+        <KpiCard
+          label="Expected month-end operating profit"
+          value={money(p.projectedOperatingProfit)}
+          tone={p.projectedOperatingProfit >= 0 ? "green" : "red"}
           forecast
+          sub={`Not cash vs $15,750/week. Extra revenue keeps ${pct(p.contributionMargin)}, not 100%.`}
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Live calculator">
           <div className="grid gap-3 sm:grid-cols-2">
-            <NumberField label="Weekly cash break-even" value={s.weeklyBreakEven} onChange={(n) => patchSettings({ weeklyBreakEven: n })} money />
+            <NumberField label="Monthly fixed expenses" value={s.monthlyFixedOverhead} onChange={(n) => patchSettings({ monthlyFixedOverhead: n })} money />
+            <NumberField label="Weekly cash benchmark (comparison only)" value={s.weeklyBreakEven} onChange={(n) => patchSettings({ weeklyBreakEven: n })} money />
             <NumberField label="Average ticket" value={s.averageTicket} onChange={(n) => patchSettings({ averageTicket: n })} money />
             <NumberField label="Close rate" value={s.closeRate} onChange={(n) => patchSettings({ closeRate: n })} percent min={0} max={1} step={0.01} />
             <NumberField label="Incoming calls / day (forecast)" value={s.incomingCallsPerDay} onChange={(n) => patchSettings({ incomingCallsPerDay: n })} />
           </div>
           <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
-            <dt>Monthly cash break-even</dt>
+            <dt>Cost-based monthly break-even</dt>
+            <dd className="tabular text-right font-semibold">{money(p.monthlyCostBreakEven)}</dd>
+            <dt>Contribution margin used</dt>
+            <dd className="tabular text-right font-semibold">{pct(p.contributionMargin)}</dd>
+            <dt>Operating profit on each extra sold job</dt>
+            <dd className="tabular text-right font-semibold">{money((p.profitPerDollarAboveBreakEven ?? 0) * (p.currentAvgTicket ?? s.averageTicket))}</dd>
+            <dt>Historical cash benchmark / month</dt>
             <dd className="tabular text-right font-semibold">{money(monthlyFromWeekly(s.weeklyBreakEven))}</dd>
             <dt>Sold jobs still needed</dt>
             <dd className="tabular text-right font-semibold">{num(p.jobsNeededToBreakEven)}</dd>
@@ -62,7 +74,7 @@ export function BreakEvenView() {
             <dd className="tabular text-right font-semibold">{num(p.callsNeededToGoal)}</dd>
           </dl>
           <p className="mt-3 text-xs text-slate-500">
-            Worked example with the starting numbers: {money(68250)} / {money(1100)} = {exampleJobs} sold jobs; {exampleJobs} / 80% close = {exampleCalls} incoming calls (rounded up).
+            Primary math: monthly break-even = fixed expenses ÷ contribution margin. The $15,750 weekly figure is a historical all-in cash comparison and is not added to the $47,000. Rounding example at the old cash target: {money(68250)} / {money(1100)} = {exampleJobs} jobs; {exampleJobs} / 80% = {exampleCalls} incoming calls.
           </p>
         </Card>
 
@@ -105,7 +117,7 @@ export function BreakEvenView() {
       </Card>
 
       <Card title="Break-even progress">
-        <ProgressBar value={p.mtdCompletedRevenue} max={p.monthlyCashBreakEven} tone={p.status === "red" ? "red" : p.status === "yellow" ? "yellow" : "green"} />
+        <ProgressBar value={p.mtdCompletedRevenue} max={p.monthlyCostBreakEven ?? 1} tone={p.status === "red" ? "red" : p.status === "yellow" ? "yellow" : "green"} />
         <p className="mt-2 text-sm text-slate-600">
           Forecast daily production used for remaining days: {money(p.forecastDailyRevenue)}
           {p.workingDaysElapsed.length ? " (from actual days with revenue when available)." : " (from assumed ticket, close rate, and incoming calls)."}

@@ -34,7 +34,7 @@ export function TechniciansView() {
         }
       >
         <p className="text-sm text-slate-600">
-          Paid hours are independent of an eight-hour day. Brien’s commission is 10% of weekly sold revenue above $7,500. Nathan is scored as an apprentice and as Brien’s helper.
+          Dustin produces and sells; his owner salary is in the $47,000 fixed expenses, so his job hours are not counted again as variable labor. Noah is office and also in fixed expenses. Brien’s commission is 10% of weekly sold revenue above $7,500. Nathan is scored as an apprentice and as Brien’s helper. Paid hours are independent of an eight-hour day.
         </p>
       </Card>
 
@@ -66,6 +66,12 @@ export function TechniciansView() {
                 <Stat k="Paid hours" v={num(card.paidHours, 1)} />
                 <Stat k="Loaded hourly" v={money(loadedWage(emp), 2)} />
               </div>
+              {emp.payInFixedOverhead ? (
+                <p className="mt-3 rounded-lg bg-navy-100 px-3 py-2 text-sm text-navy">
+                  {emp.name}’s pay is included in the $47,000 fixed expenses, so job hours are not counted again as variable labor.
+                  {emp.id === "noah" ? " Enter Noah’s monthly salary under Edit pay if you want it shown as an allocation inside that $47,000." : ""}
+                </p>
+              ) : null}
               {emp.weeklySalesThreshold > 0 ? (
                 <p className={`mt-3 rounded-lg px-3 py-2 text-sm ${card.soldRevenue >= emp.weeklySalesThreshold ? "bg-green-50 text-profit" : "bg-red-50 text-brand-red"}`}>
                   Weekly threshold {money(emp.weeklySalesThreshold)}: {card.soldRevenue >= emp.weeklySalesThreshold ? "reached" : `short ${money(emp.weeklySalesThreshold - card.soldRevenue)}`} this {period === "week" ? "week" : "period"} ({money(card.soldRevenue)} sold).
@@ -186,6 +192,21 @@ export function TechniciansView() {
                       }
                     />
                     Can run service calls
+                  </label>
+                  <label className="mt-2 flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={emp.payInFixedOverhead}
+                      onChange={(e) =>
+                        setState((st) => ({
+                          ...st,
+                          employees: st.employees.map((x) =>
+                            x.id === emp.id ? { ...x, payInFixedOverhead: e.target.checked } : x,
+                          ),
+                        }))
+                      }
+                    />
+                    Pay already included in the $47k fixed expenses (do not count as variable job labor)
                   </label>
                 </div>
                 <button

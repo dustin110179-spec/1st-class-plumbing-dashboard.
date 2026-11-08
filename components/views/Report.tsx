@@ -56,11 +56,13 @@ export function ReportView() {
         <Tile k="Revenue vs $100k goal" v={`${money(p.mtdCompletedRevenue)} / ${money(p.monthlyRevenueGoal)}`} />
         <Tile k="Projected month-end revenue" v={money(p.projectedMonthEndRevenue)} />
         <Tile k="Gross profit (projected)" v={money(p.projectedGrossProfit)} />
+        <Tile k="Contribution profit (projected)" v={money(p.projectedContributionProfit)} />
         <Tile k="Operating profit (projected)" v={money(p.projectedOperatingProfit)} />
+        <Tile k="Cost-based break-even" v={money(p.monthlyCostBreakEven)} />
         <Tile k="Break-even date" v={p.notProjectedToBreakEven ? "Not this month" : p.projectedBreakEvenDate ?? "—"} />
         <Tile k="Average ticket" v={money(p.currentAvgTicket)} />
         <Tile k="Close rate" v={pct(p.currentCloseRate)} />
-        <Tile k="Cash vs weekly BE path" v={money(p.projectedCashProfit)} />
+        <Tile k="Historical cash benchmark vs plan" v={money(p.projectedCashProfit)} />
       </div>
 
       <Card title="Month-over-month">

@@ -100,6 +100,79 @@ export function loadedWage(employee: Employee): number {
   return employee.hourlyPay * employee.laborBurden;
 }
 
+export function laborCountsAsVariable(employee: Employee, settings: Settings): boolean {
+  if ((employee.role === "owner" || employee.id === "dustin") && settings.overheadIncludesOwnerSalary) return false;
+  if (employee.id === "noah" && settings.overheadIncludesNoahSalary) return false;
+  return !employee.payInFixedOverhead;
+}
+
+export function variableLaborDollars(employee: Employee, hours: number, settings: Settings): number {
+  if (hours <= 0 || !laborCountsAsVariable(employee, settings)) return 0;
+  return hours * loadedWage(employee);
+}
+
+export function fixedOperatingExpenses(state: AppState): number {
+  const s = state.settings;
+  let fixed = s.monthlyFixedOverhead;
+  if (!s.overheadIncludesMarketing) {
+    const spend = state.marketing.reduce((n, m) => n + m.monthlySpend, 0);
+    fixed += spend > 0 ? spend : s.marketingBudgetMonthly;
+  }
+  if (!s.overheadIncludesSoftware) fixed += s.softwareMonthly;
+  if (!s.overheadIncludesLoans) fixed += s.loanMonthly;
+  if (!s.overheadIncludesOwnerSalary) {
+    const owner = state.employees.find((e) => e.role === "owner");
+    if (owner) fixed += owner.ownerCompMonthly;
+  }
+  if (!s.overheadIncludesNoahSalary) {
+    const noah = state.employees.find((e) => e.id === "noah");
+    if (noah) fixed += noah.ownerCompMonthly;
+  }
+  return fixed;
+}
+
+export function costBreakEvenRevenue(fixed: number, contributionMargin: number | null): number | null {
+  if (contributionMargin == null || !(contributionMargin > 0) || !(fixed >= 0)) return null;
+  return fixed / contributionMargin;
+}
+
+/** Forecast variable costs on one typical sold ticket. Dustin/Noah pay is not included when it sits in fixed overhead. */
+export function forecastUnitEconomics(state: AppState, ticket: number) {
+  const s = state.settings;
+  const producers = producingTechs(state.employees);
+  const laborPerJob =
+    producers.length === 0
+      ? 0
+      : producers.reduce((sum, tech) => {
+          const lead = variableLaborDollars(tech, s.assumedPaidHoursPerSoldJob, s);
+          const helpers = helpersOn(state.employees, tech.id);
+          const helper = helpers.reduce(
+            (h, emp) => h + variableLaborDollars(emp, s.assumedHelperHoursPerSoldJob, s),
+            0,
+          );
+          return sum + lead + helper;
+        }, 0) / producers.length;
+  const materials = ticket * s.assumedMaterialsPct;
+  const subs = ticket * s.assumedSubPct;
+  const processing = ticket * s.processingFeeRate;
+  const commission = ticket * s.assumedCommissionPct;
+  const otherVariable = ticket * s.assumedOtherVariablePct;
+  const cogs = laborPerJob + materials + subs;
+  const variable = cogs + processing + commission + otherVariable;
+  return {
+    laborPerJob,
+    materials,
+    subs,
+    processing,
+    commission,
+    otherVariable,
+    cogs,
+    variable,
+    grossMargin: ticket > 0 ? (ticket - cogs) / ticket : null,
+    contributionMargin: ticket > 0 ? (ticket - variable) / ticket : null,
+  };
+}
+
 export function producingTechs(employees: Employee[]): Employee[] {
   return employees.filter((e) => e.active && e.canRunCalls);
 }
@@ -189,10 +262,13 @@ export function jobEconomics(
   }
   let techLabor = 0;
   let helperLabor = 0;
+  let overheadLaborExcluded = 0;
   if (!tech) {
     missing.push({ field: "technicianId", reason: "Technician not found." });
   } else if (job.paidHoursTech > 0) {
-    techLabor = job.paidHoursTech * loadedWage(tech);
+    const loaded = job.paidHoursTech * loadedWage(tech);
+    if (!laborCountsAsVariable(tech, settings)) overheadLaborExcluded += loaded;
+    else techLabor = loaded;
   } else if (job.status === "completed") {
     missing.push({ field: "paidHoursTech", reason: "Completed job is missing paid technician hours." });
   }
@@ -200,8 +276,11 @@ export function jobEconomics(
     const helper = empById.get(helperId);
     const hours = job.paidHoursHelpers[helperId] ?? 0;
     if (!helper) continue;
-    if (hours > 0) helperLabor += hours * loadedWage(helper);
-    else if (job.status === "completed") {
+    if (hours > 0) {
+      const loaded = hours * loadedWage(helper);
+      if (!laborCountsAsVariable(helper, settings)) overheadLaborExcluded += loaded;
+      else helperLabor += loaded;
+    } else if (job.status === "completed") {
       missing.push({
         field: `paidHoursHelpers.${helperId}`,
         reason: `Missing paid hours for ${helper.name}.`,
@@ -212,21 +291,27 @@ export function jobEconomics(
     job.paidHoursTech + job.helperIds.reduce((s, id) => s + (job.paidHoursHelpers[id] ?? 0), 0);
   const commission = commissionMap?.get(job.id) ?? 0;
   const processing = revenue * settings.processingFeeRate;
-  const grossProfit =
-    revenue - techLabor - helperLabor - job.materials - job.subcontractors - processing - commission;
+  const otherVariable = job.callback ? job.callbackCost : 0;
+  const grossProfit = revenue - techLabor - helperLabor - job.materials - job.subcontractors;
+  const contributionProfit = grossProfit - processing - commission - otherVariable;
   const grossMargin = revenue > 0 ? grossProfit / revenue : null;
+  const contributionMargin = revenue > 0 ? contributionProfit / revenue : null;
   const laborPct = revenue > 0 ? (techLabor + helperLabor) / revenue : null;
   return {
     jobId: job.id,
     revenue,
     techLabor,
     helperLabor,
+    overheadLaborExcluded,
     materials: job.materials,
     subcontractors: job.subcontractors,
     processing,
     commission,
+    otherVariable,
     grossProfit,
     grossMargin,
+    contributionProfit,
+    contributionMargin,
     revenuePerCrewHour: crewHours > 0 && revenue > 0 ? revenue / crewHours : null,
     laborPct,
     laborHigh: laborPct != null && laborPct > settings.laborPercentWarning,
@@ -337,17 +422,7 @@ export function projectMonth(state: AppState, today = todayISO()): MonthProjecti
     });
   }
 
-  const revenueRemainingToBreakEven = Math.max(0, monthlyCashBreakEven - mtdCompletedRevenue);
-  const revenueRemainingToGoal = Math.max(0, settings.monthlyRevenueGoal - mtdCompletedRevenue);
-  const jobsNeededToBreakEven = jobsNeeded(revenueRemainingToBreakEven, currentAvgTicket);
-  const jobsNeededToGoal = jobsNeeded(revenueRemainingToGoal, currentAvgTicket);
   const closeForCalls = currentCloseRate && currentCloseRate > 0 ? currentCloseRate : null;
-  const callsNeededToBreakEven = closeForCalls ? callsNeeded(jobsNeededToBreakEven, closeForCalls) : null;
-  const callsNeededToGoal = closeForCalls ? callsNeeded(jobsNeededToGoal, closeForCalls) : null;
-  const remainingCount = remaining.length;
-  const callsPerDayToBreakEven = callsPerDay(callsNeededToBreakEven, remainingCount);
-  const callsPerDayToGoal = callsPerDay(callsNeededToGoal, remainingCount);
-
   const assumedDaily = forecastDailyRevenue(settings, currentAvgTicket, closeForCalls ?? settings.closeRate);
   const actualDaysWithRevenue = elapsed.filter((d) => {
     const dayJobs = monthJobs.filter((j) => j.date === d);
@@ -363,45 +438,16 @@ export function projectMonth(state: AppState, today = todayISO()): MonthProjecti
         }, 0) / actualDaysWithRevenue.length
       : null;
   const forecastDailyRevenueValue = actualDailyAvg ?? assumedDaily;
-
-  let running = mtdCompletedRevenue;
-  let breakEvenDate: string | null = mtdCompletedRevenue >= monthlyCashBreakEven ? today : null;
   const todayRevenueLogged =
     jobRevenueSum(monthJobs.filter((j) => j.date === today)) > 0 ||
     (state.dailyLogs.find((l) => l.date === today)?.completedRevenue ?? 0) > 0;
 
-  for (const day of remaining) {
+  const dailyAdds = remaining.map((day) => {
     const scheduled = scheduledRevenueOn(monthJobs, day);
     const alreadyCountedToday = day === today && todayRevenueLogged;
-    const add = alreadyCountedToday ? 0 : scheduled > 0 ? scheduled : forecastDailyRevenueValue;
-    running += add;
-    if (breakEvenDate == null && running >= monthlyCashBreakEven) {
-      breakEvenDate = day;
-    }
-  }
-
-  const projectedMonthEndRevenue = running;
-  const notProjectedToBreakEven = projectedMonthEndRevenue < monthlyCashBreakEven;
-  if (notProjectedToBreakEven) breakEvenDate = null;
-  const workingDaysAfterBreakEven =
-    breakEvenDate == null ? null : remaining.filter((d) => d > breakEvenDate).length;
-
-  let status: MonthProjection["status"] = "red";
-  let statusLabel = "Not projected to break even this month.";
-  if (projectedMonthEndRevenue >= settings.monthlyRevenueGoal) {
-    status = "green";
-    statusLabel = "Projected to exceed the monthly revenue goal.";
-  } else if (projectedMonthEndRevenue >= monthlyCashBreakEven) {
-    status = "yellow";
-    statusLabel = "Projected to break even but miss the monthly revenue goal.";
-  }
-
-  const requiredToDate =
-    working.length === 0 ? 0 : monthlyCashBreakEven * (elapsed.length / working.length);
-  const requiredGoalToDate =
-    working.length === 0 ? 0 : settings.monthlyRevenueGoal * (elapsed.length / working.length);
-  const paceVsBreakEven = mtdCompletedRevenue - requiredToDate;
-  const paceVsGoal = mtdCompletedRevenue - requiredGoalToDate;
+    return alreadyCountedToday ? 0 : scheduled > 0 ? scheduled : forecastDailyRevenueValue;
+  });
+  const projectedMonthEndRevenue = mtdCompletedRevenue + dailyAdds.reduce((s, n) => s + n, 0);
 
   const costJobs = completedJobs.filter(
     (j) => j.paidHoursTech > 0 || j.materials > 0 || j.subcontractors > 0,
@@ -409,28 +455,88 @@ export function projectMonth(state: AppState, today = todayISO()): MonthProjecti
   const commissionMap = commissionsByJob(monthJobs, employees);
   const actualEcon = costJobs.map((j) => jobEconomics(j, employees, settings, commissionMap));
   const hasCostData = actualEcon.length > 0;
-  const actualGp = actualEcon.reduce((s, e) => s + e.grossProfit, 0);
   const actualRev = actualEcon.reduce((s, e) => s + e.revenue, 0);
-  const assumedGm = (settings.targetGrossMarginLow + settings.targetGrossMarginHigh) / 2;
-  const grossMargin = hasCostData && actualRev > 0 ? actualGp / actualRev : assumedGm;
+  const actualGp = actualEcon.reduce((s, e) => s + e.grossProfit, 0);
+  const actualCp = actualEcon.reduce((s, e) => s + e.contributionProfit, 0);
+  const unit = forecastUnitEconomics(state, currentAvgTicket);
+  const grossMargin = hasCostData && actualRev > 0 ? actualGp / actualRev : unit.grossMargin;
+  const contributionMargin =
+    hasCostData && actualRev > 0 ? actualCp / actualRev : unit.contributionMargin;
   if (!hasCostData) {
     missing.push({
       field: "jobCosts",
       reason:
-        "No job-level labor/material costs yet. Operating profit is a forecast using target margin and the $47,000 overhead — not the $15,750 weekly cash break-even.",
+        "No job-level labor/material costs yet. Contribution margin is a forecast from assumed hours, materials, subs, processing, and commissions. Dustin’s and Noah’s pay are not counted again as variable labor because they sit in the $47,000 fixed expenses.",
     });
   }
 
-  const projectedGrossProfit = projectedMonthEndRevenue * grossMargin;
-  const marketing = settings.overheadIncludesMarketing
-    ? 0
-    : state.marketing.reduce((s, m) => s + m.monthlySpend, 0) || settings.marketingBudgetMonthly;
-  const projectedOperatingProfit =
-    projectedGrossProfit -
-    projectedMonthEndRevenue * settings.processingFeeRate -
-    settings.monthlyFixedOverhead -
-    marketing;
+  const fixed = fixedOperatingExpenses(state);
+  const monthlyCostBreakEven = costBreakEvenRevenue(fixed, contributionMargin);
+  if (monthlyCostBreakEven == null) {
+    missing.push({
+      field: "contributionMargin",
+      reason: "Cost-based break-even needs a positive contribution margin (revenue after variable costs). Enter job costs or check assumed hours and material percentages.",
+    });
+  }
+
+  const primaryBreakEven = monthlyCostBreakEven ?? monthlyCashBreakEven;
+  const revenueRemainingToBreakEven = Math.max(0, primaryBreakEven - mtdCompletedRevenue);
+  const revenueRemainingToGoal = Math.max(0, settings.monthlyRevenueGoal - mtdCompletedRevenue);
+  const jobsNeededToBreakEven = jobsNeeded(revenueRemainingToBreakEven, currentAvgTicket);
+  const jobsNeededToGoal = jobsNeeded(revenueRemainingToGoal, currentAvgTicket);
+  const callsNeededToBreakEven = closeForCalls ? callsNeeded(jobsNeededToBreakEven, closeForCalls) : null;
+  const callsNeededToGoal = closeForCalls ? callsNeeded(jobsNeededToGoal, closeForCalls) : null;
+  const remainingCount = remaining.length;
+  const callsPerDayToBreakEven = callsPerDay(callsNeededToBreakEven, remainingCount);
+  const callsPerDayToGoal = callsPerDay(callsNeededToGoal, remainingCount);
+
+  let running = mtdCompletedRevenue;
+  let breakEvenDate: string | null = monthlyCostBreakEven != null && mtdCompletedRevenue >= monthlyCostBreakEven ? today : null;
+  remaining.forEach((day, i) => {
+    running += dailyAdds[i];
+    if (breakEvenDate == null && monthlyCostBreakEven != null && running >= monthlyCostBreakEven) {
+      breakEvenDate = day;
+    }
+  });
+  const notProjectedToBreakEven =
+    monthlyCostBreakEven == null || projectedMonthEndRevenue < monthlyCostBreakEven;
+  if (notProjectedToBreakEven) breakEvenDate = null;
+  const reached = breakEvenDate;
+  const workingDaysAfterBreakEven =
+    reached == null ? null : remaining.filter((d) => d > reached).length;
+
+  let status: MonthProjection["status"] = "red";
+  let statusLabel = "Not projected to break even this month.";
+  if (monthlyCostBreakEven == null) {
+    status = "red";
+    statusLabel = "Cannot project break-even until contribution margin is known.";
+  } else if (projectedMonthEndRevenue >= settings.monthlyRevenueGoal) {
+    status = "green";
+    statusLabel = "Projected to exceed the monthly revenue goal.";
+  } else if (projectedMonthEndRevenue >= monthlyCostBreakEven) {
+    status = "yellow";
+    statusLabel = "Projected to cover fixed expenses but miss the monthly revenue goal.";
+  }
+
+  const requiredToDate =
+    working.length === 0 || monthlyCostBreakEven == null
+      ? 0
+      : monthlyCostBreakEven * (elapsed.length / working.length);
+  const requiredGoalToDate =
+    working.length === 0 ? 0 : settings.monthlyRevenueGoal * (elapsed.length / working.length);
+  const paceVsBreakEven = mtdCompletedRevenue - requiredToDate;
+  const paceVsGoal = mtdCompletedRevenue - requiredGoalToDate;
+
+  const cm = contributionMargin ?? 0;
+  const projectedGrossProfit = projectedMonthEndRevenue * (grossMargin ?? 0);
+  const projectedContributionProfit = projectedMonthEndRevenue * cm;
+  const projectedOperatingProfit = projectedContributionProfit - fixed;
   const projectedCashProfit = projectedMonthEndRevenue - monthlyCashBreakEven;
+  const profitPerDollarAboveBreakEven = contributionMargin != null && contributionMargin > 0 ? contributionMargin : null;
+  const profitOnRevenueAboveBreakEven =
+    monthlyCostBreakEven != null && projectedMonthEndRevenue > monthlyCostBreakEven && profitPerDollarAboveBreakEven != null
+      ? (projectedMonthEndRevenue - monthlyCostBreakEven) * profitPerDollarAboveBreakEven
+      : 0;
 
   const techDays = producingTechs(employees).length * Math.max(1, elapsed.length || remaining.length);
   const revenuePerTechDay =
@@ -454,6 +560,12 @@ export function projectMonth(state: AppState, today = todayISO()): MonthProjecti
     mtdCollectedRevenue,
     mtdInvoicedRevenue,
     monthlyCashBreakEven,
+    monthlyCostBreakEven,
+    fixedOperatingExpenses: fixed,
+    contributionMargin,
+    projectedContributionProfit,
+    profitPerDollarAboveBreakEven,
+    profitOnRevenueAboveBreakEven,
     monthlyRevenueGoal: settings.monthlyRevenueGoal,
     revenueRemainingToBreakEven,
     revenueRemainingToGoal,
@@ -512,15 +624,11 @@ export function simulate(s: ScenarioAssumptions, processingRate: number, members
   const processing = usedRevenue * processingRate;
   const membershipGp = s.membershipSalesPerMonth * membershipAnnual * 0.7;
   const grossProfit = usedRevenue * s.grossMargin - callbacks + membershipGp;
-  const marketingInOverhead = true;
-  const operatingProfit =
-    grossProfit - processing - s.monthlyOverhead - (marketingInOverhead ? 0 : s.marketingBudget);
-  const contributionAfterVar =
-    usedRevenue - laborCost - materials - subs - processing - callbacks;
+  const contributionProfit = grossProfit - processing;
+  const contributionMargin = usedRevenue > 0 ? contributionProfit / usedRevenue : 0;
+  const operatingProfit = contributionProfit - s.monthlyOverhead;
   const beRevenue =
-    contributionAfterVar > 0
-      ? s.monthlyOverhead / (contributionAfterVar / Math.max(usedRevenue, 1))
-      : Infinity;
+    contributionMargin > 0 ? s.monthlyOverhead / contributionMargin : Infinity;
   const daily = usedRevenue / Math.max(s.workingDays, 1);
   const beDayIndex = daily > 0 ? ceilWhole(Math.min(beRevenue, usedRevenue) / daily) : null;
   const cashGeneration = operatingProfit + (laborCost * 0.0);
@@ -540,7 +648,9 @@ export function simulate(s: ScenarioAssumptions, processingRate: number, members
     operatingProfit,
     breakEvenRevenue: beRevenue,
     breakEvenDay: beDayIndex != null && beDayIndex <= s.workingDays ? beDayIndex : null,
-    notProjectedToBreakEven: !(usedRevenue >= s.monthlyOverhead / Math.max(s.grossMargin, 0.01)),
+    contributionProfit,
+    contributionMargin,
+    notProjectedToBreakEven: !(Number.isFinite(beRevenue) && usedRevenue >= beRevenue),
     revenuePerTech: s.technicians > 0 ? usedRevenue / s.technicians : 0,
     revenuePerCrewHour: laborHours > 0 ? usedRevenue / laborHours : 0,
     cashGeneration: cashGeneration,
@@ -741,7 +851,7 @@ export function paceSeries(state: AppState, today: string) {
     const log = state.dailyLogs.find((l) => l.date === d);
     const dayRev = Math.max(jobRevenueSum(dayJobs), log?.completedRevenue ?? 0);
     if (d < today || (d === today && dayRev > 0)) actual += dayRev;
-    const required = p.monthlyCashBreakEven * ((i + 1) / days.length);
+    const required = (p.monthlyCostBreakEven ?? p.monthlyCashBreakEven) * ((i + 1) / days.length);
     const goal = p.monthlyRevenueGoal * ((i + 1) / days.length);
     const forecast =
       d < today || (d === today && dayRev > 0)

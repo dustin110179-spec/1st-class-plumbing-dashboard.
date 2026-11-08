@@ -52,9 +52,9 @@ export function DashboardView() {
           sub={`Sold ${money(p.mtdSoldRevenue)} · Collected ${money(p.mtdCollectedRevenue)}`}
         />
         <KpiCard
-          label="Monthly cash break-even"
-          value={money(p.monthlyCashBreakEven)}
-          sub="From $15,750 weekly × 52 / 12. Overhead not added again."
+          label="Monthly cost-based break-even"
+          value={money(p.monthlyCostBreakEven)}
+          sub={`Fixed ${money(p.fixedOperatingExpenses)} ÷ contribution margin ${pct(p.contributionMargin)}. Not the $15,750 weekly cash benchmark.`}
           tone="navy"
         />
         <KpiCard
@@ -84,7 +84,7 @@ export function DashboardView() {
           value={money(p.projectedOperatingProfit)}
           tone={p.projectedOperatingProfit >= 0 ? "green" : "red"}
           forecast
-          sub="Detailed model: GP − processing − $47k overhead"
+          sub="Contribution profit − $47k fixed. Extra revenue is not 100% profit."
         />
         <KpiCard
           label="Calls needed to break even"
@@ -113,7 +113,13 @@ export function DashboardView() {
             p.grossMargin != null && p.grossMargin >= state.settings.targetGrossMarginLow ? "green" : "red"
           }
           forecast={p.dataMode !== "actual"}
-          sub={`Target ${pct(state.settings.targetGrossMarginLow)}–${pct(state.settings.targetGrossMarginHigh)}`}
+          sub={`After variable labor, materials, subs. Target ${pct(state.settings.targetGrossMarginLow)}–${pct(state.settings.targetGrossMarginHigh)}`}
+        />
+        <KpiCard
+          label="Contribution margin"
+          value={pct(p.contributionMargin)}
+          forecast={p.dataMode !== "actual"}
+          sub="After processing, commissions, and other variable costs. This drives break-even."
         />
         <KpiCard
           label="Revenue per technician day"
@@ -166,14 +172,14 @@ export function DashboardView() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Cash break-even progress">
+        <Card title="Cost-based break-even progress">
           <p className="mb-2 text-sm text-slate-600">
-            {money(p.mtdCompletedRevenue)} of {money(p.monthlyCashBreakEven)}
+            {money(p.mtdCompletedRevenue)} of {money(p.monthlyCostBreakEven)} needed to cover fixed expenses
           </p>
           <ProgressBar
             value={p.mtdCompletedRevenue}
-            max={p.monthlyCashBreakEven}
-            tone={p.mtdCompletedRevenue >= p.monthlyCashBreakEven ? "green" : "yellow"}
+            max={p.monthlyCostBreakEven ?? 1}
+            tone={p.monthlyCostBreakEven != null && p.mtdCompletedRevenue >= p.monthlyCostBreakEven ? "green" : "yellow"}
           />
           <p className="mt-3 mb-2 text-sm text-slate-600">
             Revenue goal {money(p.mtdCompletedRevenue)} of {money(p.monthlyRevenueGoal)}
@@ -184,23 +190,34 @@ export function DashboardView() {
             tone={p.mtdCompletedRevenue >= p.monthlyRevenueGoal ? "green" : "navy"}
           />
         </Card>
-        <Card title="Two financial views — do not mix">
-          <div className="grid gap-3 sm:grid-cols-2">
+        <Card title="Primary P&L — do not stack the $15,750 on the $47,000">
+          <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg bg-paper p-3">
-              <p className="text-xs font-bold uppercase text-navy">1. Cash / revenue break-even</p>
-              <p className="mt-2 text-2xl font-semibold tabular">{money(p.projectedCashProfit)}</p>
+              <p className="text-xs font-bold uppercase text-navy">Gross profit</p>
+              <p className="mt-2 text-2xl font-semibold tabular">{money(p.projectedGrossProfit)}</p>
               <p className="text-xs text-slate-600">
-                Projected revenue minus the $15,750/week all-in cash target ({money(p.monthlyCashBreakEven)}/month). Labor, materials, marketing, and overhead are already inside that target.
+                Revenue minus variable labor (Brien/Nathan), materials, and subcontractors. Dustin’s and Noah’s pay stay in fixed expenses.
               </p>
             </div>
             <div className="rounded-lg bg-paper p-3">
-              <p className="text-xs font-bold uppercase text-navy">2. Cost-based operating profit</p>
+              <p className="text-xs font-bold uppercase text-navy">Contribution profit</p>
+              <p className="mt-2 text-2xl font-semibold tabular">{money(p.projectedContributionProfit)}</p>
+              <p className="text-xs text-slate-600">
+                Gross profit minus processing, commissions, and other variable costs. Margin {pct(p.contributionMargin)}. Each extra dollar of revenue keeps about {money(p.profitPerDollarAboveBreakEven, 2)} after variable costs — not a full dollar of profit.
+              </p>
+            </div>
+            <div className="rounded-lg bg-paper p-3">
+              <p className="text-xs font-bold uppercase text-navy">Operating profit</p>
               <p className="mt-2 text-2xl font-semibold tabular">{money(p.projectedOperatingProfit)}</p>
               <p className="text-xs text-slate-600">
-                Revenue − job costs − processing − the $47,000 monthly overhead. Primary model once job-level costs are entered.
+                Contribution minus {money(p.fixedOperatingExpenses)} fixed expenses. Revenue above break-even is projected to add {money(p.profitOnRevenueAboveBreakEven)} of operating profit this month.
               </p>
             </div>
           </div>
+          <p className="mt-3 text-xs text-slate-500">
+            Historical all-in cash benchmark remains {money(state.settings.weeklyBreakEven)}/week ({money(p.monthlyCashBreakEven)}/month) for comparison only. It is not another expense and is not added to the $47,000.
+            Projected cash vs that benchmark: {money(p.projectedCashProfit)}.
+          </p>
         </Card>
       </div>
 
@@ -243,6 +260,7 @@ export function DashboardView() {
           <div className="flex justify-around">
             <Gauge value={p.currentCloseRate ?? 0} label="Close rate" />
             <Gauge value={p.grossMargin ?? 0} min={0.3} max={0.8} label="Gross margin" />
+            <Gauge value={p.contributionMargin ?? 0} min={0.2} max={0.75} label="Contribution" />
           </div>
           <p className="mt-3 text-sm text-slate-600">
             {cap.techs} techs × remaining days can produce about {money(cap.remainingCapacityRevenue)} more if they hit {state.settings.targetCallsPerTechDayLow}–{state.settings.targetCallsPerTechDayHigh} calls/day.

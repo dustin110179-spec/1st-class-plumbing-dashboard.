@@ -5,6 +5,9 @@ import {
   callsNeeded,
   ceilWhole,
   commissionsByJob,
+  costBreakEvenRevenue,
+  fixedOperatingExpenses,
+  forecastUnitEconomics,
   jobEconomics,
   jobsNeeded,
   marginFromMarkup,
@@ -27,8 +30,18 @@ describe("break-even math", () => {
     const state = createDefaultState();
     const p = projectMonth(state, "2026-11-07");
     assert.equal(p.monthlyCashBreakEven, 68250);
-    assert.equal(state.settings.monthlyFixedOverhead, 47000);
+    assert.equal(fixedOperatingExpenses(state), 47000);
     assert.notEqual(p.monthlyCashBreakEven, 15750 * 4 + 47000);
+    assert.ok(p.monthlyCostBreakEven);
+    assert.notEqual(p.monthlyCostBreakEven, 68250 + 47000);
+    assert.ok(Math.abs((p.monthlyCostBreakEven ?? 0) - 47000 / (p.contributionMargin ?? 1)) < 0.01);
+  });
+
+  it("uses fixed expenses ÷ contribution margin as the primary break-even", () => {
+    assert.equal(costBreakEvenRevenue(47000, 0.5), 94000);
+    const extra = 10000;
+    const cm = 0.4;
+    assert.equal(extra * cm, 4000);
   });
 
   it("rounds required jobs and incoming calls up to whole numbers", () => {
@@ -156,6 +169,58 @@ describe("labor and commission", () => {
     assert.equal(econ.commission, 150);
     assert.ok(econ.revenuePerCrewHour);
     assert.equal(econ.revenuePerCrewHour, 5000 / 8);
+  });
+
+  it("does not count Dustin job hours as variable labor when owner pay is in fixed expenses", () => {
+    const state = createDefaultState();
+    const job: Job = {
+      id: "d1",
+      date: "2026-11-02",
+      customer: "Owner job",
+      jobType: "x",
+      category: "service",
+      technicianId: "dustin",
+      helperIds: [],
+      window: "8-10",
+      estimatedRevenue: 1100,
+      soldRevenue: 1100,
+      completedRevenue: 1100,
+      invoicedRevenue: 1100,
+      collectedRevenue: 1100,
+      status: "completed",
+      sold: true,
+      estimatedHours: 3,
+      paidHoursTech: 3,
+      paidHoursHelpers: {},
+      materials: 100,
+      subcontractors: 0,
+      membershipSold: false,
+      callback: false,
+      callbackCost: 0,
+      optionsPresented: "all",
+      financingOffered: false,
+      reviewScore: 5,
+      opportunityMissed: false,
+      sourceId: "organic",
+      isSample: false,
+      externalId: "",
+      notes: "",
+    };
+    const econ = jobEconomics(job, state.employees, state.settings);
+    assert.equal(econ.techLabor, 0);
+    assert.equal(econ.overheadLaborExcluded, 3 * 45 * 1.25);
+    assert.equal(econ.grossProfit, 1100 - 100);
+  });
+
+  it("forecast contribution excludes owner and office pay already in the $47k", () => {
+    const state = createDefaultState();
+    assert.ok(state.employees.some((e) => e.id === "noah" && e.role === "office"));
+    const unit = forecastUnitEconomics(state, 1100);
+    assert.ok(unit.contributionMargin != null && unit.contributionMargin > 0);
+    assert.ok(unit.contributionMargin < unit.grossMargin!);
+    const noah = state.employees.find((e) => e.id === "noah")!;
+    assert.equal(noah.canRunCalls, false);
+    assert.equal(noah.payInFixedOverhead, true);
   });
 });
 

@@ -89,6 +89,8 @@ export function SimulatorView() {
               <dl className="mt-4 space-y-1 text-sm">
                 <Line k="Revenue forecast" v={money(r.revenue)} />
                 <Line k="Gross profit" v={money(r.grossProfit)} />
+                <Line k="Contribution profit" v={money(r.contributionProfit)} />
+                <Line k="Contribution margin" v={pct(r.contributionMargin)} />
                 <Line k="Operating profit" v={money(r.operatingProfit)} strong />
                 <Line k="Break-even working day #" v={r.breakEvenDay == null ? "Not this month" : String(r.breakEvenDay)} />
                 <Line k="Sold jobs" v={String(r.soldJobs)} />
@@ -116,6 +118,7 @@ export function SimulatorView() {
               {[
                 ["Revenue", results.map((r) => money(r.revenue))],
                 ["Gross profit", results.map((r) => money(r.grossProfit))],
+                ["Contribution profit", results.map((r) => money(r.contributionProfit))],
                 ["Operating profit", results.map((r) => money(r.operatingProfit))],
                 ["Break-even day", results.map((r) => (r.breakEvenDay == null ? "Not this month" : String(r.breakEvenDay)))],
               ].map((row) => (

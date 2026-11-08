@@ -27,13 +27,13 @@ export function SettingsView() {
         }
       >
         <p className="text-sm text-slate-600">
-          Every assumption is editable. The $15,750 weekly break-even already includes labor, materials, marketing, overhead, and other operating expenses. Do not add the $47,000 monthly overhead on top of it in the cash view.
+          Primary model: contribution profit (revenue after variable costs) minus these fixed expenses. The $15,750 weekly figure is a historical all-in cash benchmark only — never add it to the $47,000.
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <TextField label="Company" value={s.companyName} onChange={(v) => patchSettings({ companyName: v })} />
           <TextField label="Tagline" value={s.tagline} onChange={(v) => patchSettings({ tagline: v })} />
-          <NumberField label="Weekly cash break-even" money value={s.weeklyBreakEven} onChange={(n) => patchSettings({ weeklyBreakEven: n })} />
-          <NumberField label="Monthly fixed overhead (P&L model)" money value={s.monthlyFixedOverhead} onChange={(n) => patchSettings({ monthlyFixedOverhead: n })} />
+          <NumberField label="Weekly cash benchmark (comparison only)" money value={s.weeklyBreakEven} onChange={(n) => patchSettings({ weeklyBreakEven: n })} />
+          <NumberField label="Monthly fixed expenses" money value={s.monthlyFixedOverhead} onChange={(n) => patchSettings({ monthlyFixedOverhead: n })} />
           <NumberField label="Monthly operating days (target)" value={s.monthlyOperatingDays} onChange={(n) => patchSettings({ monthlyOperatingDays: n })} />
           <NumberField label="Annual revenue goal" money value={s.annualRevenueGoal} onChange={(n) => patchSettings({ annualRevenueGoal: n })} />
           <NumberField label="Weekly revenue goal" money value={s.weeklyRevenueGoal} onChange={(n) => patchSettings({ weeklyRevenueGoal: n })} />
@@ -50,18 +50,42 @@ export function SettingsView() {
           <NumberField label="Labor % warning threshold" percent value={s.laborPercentWarning} min={0.1} max={0.6} step={0.01} onChange={(n) => patchSettings({ laborPercentWarning: n })} />
           <NumberField label="Assumed materials % (forecast P&L)" percent value={s.assumedMaterialsPct} min={0} max={0.5} step={0.01} onChange={(n) => patchSettings({ assumedMaterialsPct: n })} />
           <NumberField label="Assumed sub % (forecast P&L)" percent value={s.assumedSubPct} min={0} max={0.5} step={0.01} onChange={(n) => patchSettings({ assumedSubPct: n })} />
+          <NumberField label="Assumed paid hours / sold job (lead)" value={s.assumedPaidHoursPerSoldJob} step={0.25} onChange={(n) => patchSettings({ assumedPaidHoursPerSoldJob: n })} />
+          <NumberField label="Assumed helper hours / sold job" value={s.assumedHelperHoursPerSoldJob} step={0.25} onChange={(n) => patchSettings({ assumedHelperHoursPerSoldJob: n })} />
+          <NumberField label="Assumed commission % of revenue" percent value={s.assumedCommissionPct} min={0} max={0.2} step={0.005} onChange={(n) => patchSettings({ assumedCommissionPct: n })} />
+          <NumberField label="Other variable % of revenue" percent value={s.assumedOtherVariablePct} min={0} max={0.2} step={0.005} onChange={(n) => patchSettings({ assumedOtherVariablePct: n })} />
           <NumberField label="Marketing budget / month" money value={s.marketingBudgetMonthly} onChange={(n) => patchSettings({ marketingBudgetMonthly: n })} />
           <NumberField label="Software / month" money value={s.softwareMonthly} onChange={(n) => patchSettings({ softwareMonthly: n })} />
           <NumberField label="Loan payment / month" money value={s.loanMonthly} onChange={(n) => patchSettings({ loanMonthly: n })} />
         </div>
-        <label className="mt-3 flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={s.overheadIncludesMarketing} onChange={(e) => patchSettings({ overheadIncludesMarketing: e.target.checked })} />
-          $47k overhead already includes marketing (do not subtract marketing again in operating profit)
-        </label>
-        <label className="mt-2 flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={s.overheadIncludesSoftware} onChange={(e) => patchSettings({ overheadIncludesSoftware: e.target.checked })} />
-          $47k overhead already includes software
-        </label>
+      </Card>
+
+      <Card title="What is already inside the $47,000 — never count twice">
+        <p className="mb-3 text-sm text-slate-600">
+          Checked items are already included in monthly fixed expenses. Uncheck only if that cost sits outside the $47,000 and should be added. Dustin’s owner salary and Noah’s salary are included by default, so their job hours are not treated as extra variable labor.
+        </p>
+        <div className="space-y-2 text-sm">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={s.overheadIncludesOwnerSalary} onChange={(e) => patchSettings({ overheadIncludesOwnerSalary: e.target.checked })} />
+            Owner salary (Dustin) is included in fixed expenses
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={s.overheadIncludesNoahSalary} onChange={(e) => patchSettings({ overheadIncludesNoahSalary: e.target.checked })} />
+            Noah’s salary is included in fixed expenses
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={s.overheadIncludesMarketing} onChange={(e) => patchSettings({ overheadIncludesMarketing: e.target.checked })} />
+            Marketing is included in the $47,000 (do not subtract it again)
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={s.overheadIncludesSoftware} onChange={(e) => patchSettings({ overheadIncludesSoftware: e.target.checked })} />
+            Software is included in the $47,000
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={s.overheadIncludesLoans} onChange={(e) => patchSettings({ overheadIncludesLoans: e.target.checked })} />
+            Loan payments are included in the $47,000
+          </label>
+        </div>
       </Card>
 
       <Card title="Working days and holidays (America/Chicago)">

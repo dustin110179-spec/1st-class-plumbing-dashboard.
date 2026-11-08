@@ -29,8 +29,8 @@ export function ownerAlerts(state: AppState, today: string): OwnerAlert[] {
       id: "be-miss",
       severity: "red",
       title: "Not projected to break even this month.",
-      detail: `At the current pace and forecast of ${money(p.forecastDailyRevenue)}/day, month-end revenue is ${money(p.projectedMonthEndRevenue)} versus a cash break-even of ${money(p.monthlyCashBreakEven)}.`,
-      impact: p.monthlyCashBreakEven - p.projectedMonthEndRevenue,
+      detail: `At the current pace and forecast of ${money(p.forecastDailyRevenue)}/day, month-end revenue is ${money(p.projectedMonthEndRevenue)} versus a cost-based break-even of ${money(p.monthlyCostBreakEven)} (fixed ${money(p.fixedOperatingExpenses)} ÷ ${pct(p.contributionMargin)} contribution margin).`,
+      impact: (p.monthlyCostBreakEven ?? 0) - p.projectedMonthEndRevenue,
     });
   } else if (p.projectedBreakEvenDate) {
     alerts.push({
@@ -41,7 +41,7 @@ export function ownerAlerts(state: AppState, today: string): OwnerAlert[] {
         p.workingDaysAfterBreakEven != null
           ? `${p.workingDaysAfterBreakEven} working days remain after break-even.`
           : "Break-even lands on the last remaining working day.",
-      impact: p.projectedMonthEndRevenue - p.monthlyCashBreakEven,
+      impact: p.projectedMonthEndRevenue - (p.monthlyCostBreakEven ?? 0),
     });
   }
 

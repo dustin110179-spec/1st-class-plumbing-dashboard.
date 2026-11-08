@@ -235,6 +235,7 @@ function JobCard({
       {job.sold && economics.revenue > 0 ? (
         <p className="mt-1 text-[11px] text-slate-600">
           GP {money(economics.grossProfit)} ({economics.grossMargin != null ? `${(economics.grossMargin * 100).toFixed(0)}%` : "—"})
+          {economics.contributionMargin != null ? ` · CM ${(economics.contributionMargin * 100).toFixed(0)}%` : ""}
           {economics.laborHigh ? " · labor too high" : ""}
           {economics.revenuePerCrewHour != null ? ` · ${money(economics.revenuePerCrewHour)}/crew hr` : ""}
         </p>

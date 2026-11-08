@@ -57,8 +57,8 @@ export function CommandCenter() {
     <div className="min-h-screen bg-paper">
       <header className="sticky top-0 z-30 border-b border-navy/10 bg-navy text-white">
         <div className="mx-auto flex max-w-[1600px] items-center gap-4 px-4 py-3">
-          <div className="rounded-lg bg-white p-1.5">
-            <Logo className="h-12 w-auto shrink-0" />
+          <div className="rounded-lg bg-black px-2 py-1">
+            <Logo className="h-14 w-auto max-w-[260px] shrink-0 object-contain md:h-16" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-brand-yellow">

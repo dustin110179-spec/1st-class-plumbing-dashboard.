@@ -42,6 +42,8 @@ export interface Employee {
   commissionRate: number;
   assignedToId: string | null;
   ownerCompMonthly: number;
+  /** When true, this person's pay is already inside monthly fixed expenses and is not variable job labor. */
+  payInFixedOverhead: boolean;
   active: boolean;
   skills: Skill[];
   targetCallsPerDay: number;
@@ -191,6 +193,13 @@ export interface Settings {
   timezone: string;
   overheadIncludesMarketing: boolean;
   overheadIncludesSoftware: boolean;
+  overheadIncludesLoans: boolean;
+  overheadIncludesOwnerSalary: boolean;
+  overheadIncludesNoahSalary: boolean;
+  assumedPaidHoursPerSoldJob: number;
+  assumedHelperHoursPerSoldJob: number;
+  assumedCommissionPct: number;
+  assumedOtherVariablePct: number;
   beginningBankBalance: number;
   membershipGrowthGoal: number;
   callbackRateTarget: number;
@@ -251,12 +260,16 @@ export interface JobEconomics {
   revenue: number;
   techLabor: number;
   helperLabor: number;
+  overheadLaborExcluded: number;
   materials: number;
   subcontractors: number;
   processing: number;
   commission: number;
+  otherVariable: number;
   grossProfit: number;
   grossMargin: number | null;
+  contributionProfit: number;
+  contributionMargin: number | null;
   revenuePerCrewHour: number | null;
   laborPct: number | null;
   laborHigh: boolean;
@@ -274,6 +287,12 @@ export interface MonthProjection {
   mtdCollectedRevenue: number;
   mtdInvoicedRevenue: number;
   monthlyCashBreakEven: number;
+  monthlyCostBreakEven: number | null;
+  fixedOperatingExpenses: number;
+  contributionMargin: number | null;
+  projectedContributionProfit: number;
+  profitPerDollarAboveBreakEven: number | null;
+  profitOnRevenueAboveBreakEven: number;
   monthlyRevenueGoal: number;
   revenueRemainingToBreakEven: number;
   revenueRemainingToGoal: number;

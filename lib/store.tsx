@@ -11,12 +11,41 @@ import {
   type ReactNode,
 } from "react";
 import { todayISO } from "./calendar";
-import { createDefaultState } from "./defaults";
+import { createDefaultState, DEFAULT_EMPLOYEES, DEFAULT_SETTINGS } from "./defaults";
 import { uid } from "./format";
 import { buildSampleState } from "./sample";
 import type { AppState, Employee, Job, ViewId } from "./types";
 
 const KEY = "fcpl-command-center-v1";
+
+function migrateState(parsed: AppState): AppState {
+  const settings = { ...DEFAULT_SETTINGS, ...parsed.settings };
+  if (parsed.settings?.funnel) settings.funnel = parsed.settings.funnel;
+  if (parsed.settings?.pricingKinds) settings.pricingKinds = parsed.settings.pricingKinds;
+  if (parsed.settings?.workingWeekdays) settings.workingWeekdays = parsed.settings.workingWeekdays;
+  if (parsed.settings?.holidays) settings.holidays = parsed.settings.holidays;
+  const employees = (parsed.employees ?? []).map((e) => ({
+    ...e,
+    payInFixedOverhead:
+      e.payInFixedOverhead ?? (e.role === "owner" || e.role === "office" || e.id === "dustin" || e.id === "noah"),
+  }));
+  for (const def of DEFAULT_EMPLOYEES) {
+    if (!employees.some((e) => e.id === def.id)) employees.push(structuredClone(def));
+  }
+  const dustin = employees.find((e) => e.id === "dustin");
+  if (dustin) {
+    dustin.payInFixedOverhead = dustin.payInFixedOverhead || settings.overheadIncludesOwnerSalary;
+    dustin.canRunCalls = true;
+    dustin.role = "owner";
+  }
+  const noah = employees.find((e) => e.id === "noah");
+  if (noah) {
+    noah.payInFixedOverhead = true;
+    noah.role = "office";
+    noah.canRunCalls = false;
+  }
+  return { ...parsed, version: 1, settings, employees };
+}
 
 function loadLocal(): AppState {
   try {
@@ -24,7 +53,7 @@ function loadLocal(): AppState {
     if (!raw) return createDefaultState();
     const parsed = JSON.parse(raw) as AppState;
     if (!parsed || parsed.version !== 1) return createDefaultState();
-    return parsed;
+    return migrateState(parsed);
   } catch {
     return createDefaultState();
   }
@@ -97,9 +126,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .then((data) => {
         const payload = data && "payload" in (data as object) ? (data as { payload?: AppState }).payload : (data as AppState);
         if (payload && payload.version === 1 && payload.updatedAt > local.updatedAt) {
-          setStateRaw(payload);
+          const migrated = migrateState(payload);
+          setStateRaw(migrated);
           try {
-            localStorage.setItem(KEY, JSON.stringify(payload));
+            localStorage.setItem(KEY, JSON.stringify(migrated));
           } catch {
             /* ignore */
           }
@@ -154,6 +184,7 @@ export function newEmployee(): Employee {
     commissionRate: 0,
     assignedToId: null,
     ownerCompMonthly: 0,
+    payInFixedOverhead: false,
     active: true,
     skills: [{ name: "Service basics", level: 40 }],
     targetCallsPerDay: 3,
