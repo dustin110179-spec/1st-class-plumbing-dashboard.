@@ -1,0 +1,9 @@
+Item,Annual,Monthly,Notes
+Status,DRAFT,,Not an approved budget
+Initial revenue target,1200000,100000,Keep $1.2M as starting plan
+25% net profit target,300000,25000,Accounting net profit
+10% growth reserve,120000,10000,"From profit, not an expense"
+Remaining after growth IF 25% earned,180000,15000,Not a forecast
+Draft net profit at $1.2M,50403,4200.25,Margin 4.2%
+Revenue required for 25%,1715381,142948,Fixed / (0.75 - variable %)
+Gap vs $1.2M,515381,,25% not supported at $1.2M
